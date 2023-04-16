@@ -2,6 +2,4 @@ This is a example showing hot to come true real-time renderering algorithm by us
 
 it just started, but i will update as quickly as possible.
 
-now it has come true following features::
-
-1. a basic frame work
+this example shows a basic frame work
