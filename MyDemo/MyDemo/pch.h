@@ -1,6 +1,6 @@
 /*  
 	Precompiled header files
-	stdafx.h : include file for standard system include files,
+	pch.h : include file for standard system include files,
 	or project specific include files that are used frequently, 
 	but are changed infrequently
 */
@@ -17,12 +17,17 @@
 #include <dxgi1_6.h>
 #include <D3Dcompiler.h>
 #include <DirectXMath.h>
+#include <DirectXColors.h>
 #include "d3dx12.h"
+#include "MathHelper.h"
 
 #include <string>
 #include <map>
+#include <unordered_map>
 #include <vector>
+#include <array>
 #include <numeric>
+#include <memory>
 #include <wrl.h>
 #include <shellapi.h>
 #include <cstdint>

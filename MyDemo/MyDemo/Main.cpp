@@ -1,15 +1,9 @@
 
-#include "stdafx.h"
+#include "pch.h"
 #include "MyD3D12.h"
 
-
-//------------------------------------------------------------------------------------------------------------------
-// function declaration
 static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17();
 
-
-//------------------------------------------------------------------------------------------------------------------
-// main function
 
 _Use_decl_annotations_
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
@@ -19,11 +13,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     return Win32Application::Run(&sample, hInstance, nCmdShow);
 }
 
-
-//------------------------------------------------------------------------------------------------------------------
-// 
-// function definition
-// 
 
 //find path to WinPixGpuCapturer.dll from the most-recently installed version of PIX
 static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
