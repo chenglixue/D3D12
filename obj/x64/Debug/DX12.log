@@ -1,0 +1,6 @@
+﻿  MyD3D12.cpp
+C:\Users\97913\Desktop\DX12\MyD3D12.cpp(359,65): warning C4267: 'initializing': conversion from 'size_t' to 'uint32_t', possible loss of data
+C:\Users\97913\Desktop\DX12\MyD3D12.cpp(362,63): warning C4267: 'initializing': conversion from 'size_t' to 'uint32_t', possible loss of data
+C:\Users\97913\Desktop\DX12\MyD3D12.cpp(562,74): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\97913\Desktop\DX12\MyD3D12.cpp(584,57): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+  DX12.vcxproj -> C:\Users\97913\Desktop\DX12\bin\x64\Debug\DX12.exe
