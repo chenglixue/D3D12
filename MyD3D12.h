@@ -1,12 +1,14 @@
 #pragma once
 
-#pragma comment(lib, "delayimp")
-
 #include "DXSample.h"
 #include "FpsCamera.h"
 #include "StepTimer.h"
 #include "FrameResource.h"
 #include "Renderer.h"
+#include "Texture.h"
+#include "ModelLoad.h"
+#include "Light.h"
+#include "Geometry.h"
 
 using namespace DirectX;
 
@@ -23,12 +25,12 @@ public:
     friend class ModelLoader;
     MyD3D12(UINT width, UINT height, std::wstring name);
 
-    virtual void OnInit();
-    virtual void OnUpdate();
-    virtual void OnRender();
-    virtual void OnDestroy();
-    virtual void OnKeyDown(UINT8 key);
-    virtual void OnKeyUp(UINT8 key);
+    virtual void OnInit() override;
+    virtual void OnUpdate() override;
+    virtual void OnRender() override;
+    virtual void OnDestroy() override;
+    virtual void OnKeyDown(UINT8 key) override;
+    virtual void OnKeyUp(UINT8 key) override;
 
 private:
     static const UINT FrameCount = 3;
@@ -44,8 +46,8 @@ private:
     ComPtr<ID3D12CommandQueue> m_commandQueue;
     ComPtr<ID3D12RootSignature> m_rootSignature;
     ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
-    ComPtr<ID3D12DescriptorHeap> m_cbvHeap;
     ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
+    ComPtr<ID3D12DescriptorHeap> m_cbvSrvHeap;
     std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> m_PSOs;
     std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
     std::unordered_map<std::string, ComPtr<ID3DBlob>> m_shaders;
@@ -53,23 +55,28 @@ private:
 
     // App resources
     UINT m_rtvDescriptorSize;
-    UINT m_cbvDescriptorSize;
+    UINT m_cbvSrvDescriptorSize;
     UINT m_passCBVOffset;
-    std::unordered_map<std::string, std::unique_ptr<Geometrie>> m_geometries;
-    std::unordered_map<std::string, std::unique_ptr<Geometrie::Draw>> m_draws;
-    StepTimer m_timer;
-    FpsCamera m_camera;
-    bool m_isWireFrame;
-
-    //Frame resources
-    std::vector<std::unique_ptr<FrameResource>> m_frameResources;
-    FrameResource* m_pCurrentFrameResource;
-    UINT m_currentFrameResourceIndex;
+    std::vector<std::unique_ptr<Model::ModelLoader>> m_models;
+    std::vector<std::unique_ptr<Core::Texture>> m_diffuseTextures;
+    std::vector<std::unique_ptr<Core::Texture>> m_specularTextures;
+    std::vector<std::unique_ptr<Core::Material>> m_materials;
+    std::vector<std::unique_ptr<Model::Geometrie>> m_geometries;
+    std::vector<std::unique_ptr<Model::Geometrie::Draw>> m_draws;
 
     // renderer resources
-    std::vector<std::unique_ptr<Renderer>> m_allRenderers;
-    std::vector<Renderer*> m_opaqueRenderers;
-    std::vector<Renderer*> m_transparentRenderers;
+    std::vector<std::unique_ptr<Core::Renderer>> m_allRenderers;
+    std::vector<Core::Renderer*> m_opaqueRenderers;
+    std::vector<Core::Renderer*> m_transparentRenderers;
+
+    // timer and camera
+    Util::StepTimer m_timer;
+    Core::FpsCamera m_camera;
+
+    //Frame resources
+    std::vector<std::unique_ptr<Core::FrameResource>> m_frameResources;
+    Core::FrameResource* m_pCurrentFrameResource;
+    UINT m_currentFrameResourceIndex;
      
     // Synchronization objects.
     UINT m_frameIndex;
@@ -82,13 +89,15 @@ private:
     void LoadAssets();
     void PopulateCommandList();
 
-    void BuildDescriptorHeaps();
     void BuildRootSignature();
     void BuildShaderAndInputLayout();
     void BuildPSO();
-    void BuildRTVDSV();
+    void LoadTexture();
     void BuildModel();
+    void BuildMaterial();
     void BuildRenderer();
-    void BuildCBV();
     void BuildFrameResources();
+    void BuildDescriptorHeaps();
+    void BuildRTVDSV();
+    void BuildCBVSRV();
 };

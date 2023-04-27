@@ -6,6 +6,7 @@
 
 #pragma once
 
+using namespace DirectX;
 
 class MathHelper
 {

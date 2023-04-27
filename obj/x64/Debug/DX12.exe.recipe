@@ -7,7 +7,10 @@
   </ProjectOutputs>
   <ContentFiles>
     <ContentFile>
-      <FullPath>C:\Users\97913\Desktop\DX12\shaders.hlsl</FullPath>
+      <FullPath>C:\Users\97913\Desktop\DX12\bin\x64\Debug\PixelShader.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\97913\Desktop\DX12\bin\x64\Debug\VertexShader.cso</FullPath>
     </ContentFile>
   </ContentFiles>
   <SatelliteDlls />

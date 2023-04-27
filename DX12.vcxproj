@@ -21,13 +21,15 @@
   <ItemGroup>
     <ClInclude Include="Common.h" />
     <ClInclude Include="d3dx12.h" />
+    <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="DXSample.h" />
     <ClInclude Include="DXSampleHelper.h" />
     <ClInclude Include="FpsCamera.h" />
     <ClInclude Include="FrameResource.h" />
+    <ClInclude Include="Light.h" />
     <ClInclude Include="UploadBuffer.h" />
     <ClInclude Include="MathHelper.h" />
-    <ClInclude Include="Mesh.h" />
+    <ClInclude Include="Geometry.h" />
     <ClInclude Include="ModelLoad.h" />
     <ClInclude Include="MyD3D12.h" />
     <ClInclude Include="pch.h" />
@@ -37,29 +39,31 @@
     <ClInclude Include="Win32Application.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="DDSTextureLoader.cpp" />
     <ClCompile Include="DXSample.cpp" />
     <ClCompile Include="FpsCamera.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="UploadBuffer.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MathHelper.cpp" />
-    <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="Geometry.cpp" />
     <ClCompile Include="ModelLoad.cpp" />
     <ClCompile Include="MyD3D12.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Win32Application.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="shaders.hlsl">
-      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
-      <FileType>Document</FileType>
-    </CustomBuild>
+    <FxCompile Include="bin\x64\Debug\PixelShader.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="bin\x64\Debug\VertexShader.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+    </FxCompile>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -85,7 +89,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -117,7 +121,7 @@
     <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir);$(IncludePath)</IncludePath>
-    <LibraryPath>bin\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
+    <LibraryPath>bin\$(Platform)\$(Configuration)\;$(LibraryPath);%WINDIR%\System32</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -163,7 +167,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
       <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;assimp-vc140-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>d3d12.dll;assimp-vc140-mt.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>d3d12.dll;assimp-vc140-mt.dll;</DelayLoadDLLs>
     </Link>
     <CustomBuild>
       <Command>copy %(Identity) "$(OutDir)" &gt; NUL</Command>
@@ -171,6 +175,9 @@
     <CustomBuild>
       <Outputs>$(OutDir)\%(Identity)</Outputs>
     </CustomBuild>
+    <FxCompile>
+      <ShaderModel>5.1</ShaderModel>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>

@@ -3,37 +3,22 @@
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <iostream>
+#include "Texture.h"
 
 using Microsoft::WRL::ComPtr;
 
 using namespace DirectX;
 
-struct Vertex
+namespace Model
 {
-	Vertex() = default;
-	Vertex(const Vertex& rhs)
+	struct Vertex
 	{
-		this->position = rhs.position;
-		this->normal = rhs.normal;
-		this->tangent = rhs.tangent;
-		this->texCoord = rhs.texCoord;
-	}
-	Vertex& operator= (Vertex& rhs)
-	{
-		return rhs;
-	}
-
-	Vertex(Vertex&& rhs) = default;
-
-	XMFLOAT3 position;
-	XMFLOAT3 normal;
-	XMFLOAT3 tangent;
-	XMFLOAT2 texCoord;
-};
-
-class Model
-{
-public:
+		XMFLOAT3 position;
+		XMFLOAT3 normal;
+		XMFLOAT2 texCoord;
+		XMFLOAT3 tangent;
+		XMFLOAT3 bitNormal;
+	};
 
 	struct Mesh
 	{
@@ -48,21 +33,37 @@ public:
 		}
 	};
 
+	class ModelLoader
+	{
+	public:
+		// load scene for assimp
+		ModelLoader(const std::string& path);
 
-	// load scene for assimp
-	Model(const std::string& path);
+		// Traverse and process the nodes in assimp in turn
+		void TraverseNode(const aiScene* scene, aiNode* node);
 
-	// Traverse and process the nodes in assimp in turn
-	void TraverseNode(const aiScene* scene, aiNode* node);
+		// load mesh, which includes vertex, index, normal, tangent, texture, material information
+		Mesh LoadMesh(const aiScene* scene, aiMesh* mesh);
 
-	// load mesh, which includes vertex, index, normal, tangent, texture, material information
-	Mesh LoadMesh(const aiScene* scene, aiMesh* mesh);
+		// get complete model vertex
+		std::vector<Vertex> GetVertices();
 
-	std::vector<Vertex> GetVertices();
+		// get complete model vertex index
+		std::vector<uint32_t> GetIndices();
 
-	std::vector<uint32_t> GetIndices();
+		std::string GetDirectory()
+		{
+			return m_directory;
+		}
 
-private:
-	std::string directory;
-	std::vector<Mesh> m_meshs;
-};
+		std::string GetTextureName()
+		{
+			return m_textureName;
+		}
+
+	private:
+		std::string m_directory;
+		std::string m_textureName;
+		std::vector<Mesh> m_meshs;
+	};
+}

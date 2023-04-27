@@ -36,7 +36,7 @@
     <ClInclude Include="Texture.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Mesh.h">
+    <ClInclude Include="Geometry.h">
       <Filter>Model</Filter>
     </ClInclude>
     <ClInclude Include="ModelLoad.h">
@@ -66,6 +66,12 @@
     <ClInclude Include="pch.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="DDSTextureLoader.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Light.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FpsCamera.cpp">
@@ -80,10 +86,7 @@
     <ClCompile Include="MyD3D12.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="Texture.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Mesh.cpp">
+    <ClCompile Include="Geometry.cpp">
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="ModelLoad.cpp">
@@ -104,13 +107,19 @@
     <ClCompile Include="Main.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="DDSTextureLoader.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="shaders.hlsl">
+    <FxCompile Include="bin\x64\Debug\PixelShader.hlsl">
       <Filter>Shaders</Filter>
-    </CustomBuild>
+    </FxCompile>
+    <FxCompile Include="bin\x64\Debug\VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

@@ -1,2 +1,0 @@
-^C:\USERS\97913\DESKTOP\DX12\SHADERS.HLSL
-copy shaders.hlsl "bin\x64\Debug\" > NUL

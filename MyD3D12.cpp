@@ -1,8 +1,8 @@
 
 #include "pch.h"
 #include "MyD3D12.h"
-#include "Mesh.h"
-#include "ModelLoad.h"
+#include "DDSTextureLoader.h"
+#include "UploadBuffer.h"
 
 using namespace DirectX;
 
@@ -13,20 +13,18 @@ MyD3D12::MyD3D12(UINT width, UINT height, std::wstring name) :
     m_viewport(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)),
     m_scissorRect(0, 0, static_cast<LONG>(width), static_cast<LONG>(height)),
     m_rtvDescriptorSize(0),
-    m_cbvDescriptorSize(0),
+    m_cbvSrvDescriptorSize(0),
     m_passCBVOffset(0),
-    m_isWireFrame(false),
     m_frameCounter(0),
     m_currentFrameResourceIndex(0),
     m_pCurrentFrameResource(nullptr)
 {
-                            
 
 }
 
 void MyD3D12::OnInit()
 {                    
-    m_camera.Init({ 0, 10, 0 });
+    m_camera.Init({ 0, 0, 5});
 
     LoadPipeline();
     LoadAssets();
@@ -37,7 +35,7 @@ void MyD3D12::LoadPipeline()
 {
     UINT dxgiFactoryFlags = 0;
 
-///*
+
 #if defined(_DEBUG)
     // Enable the debug layer (requires the Graphics Tools "optional feature").
     // NOTE: Enabling the debug layer after device creation will invalidate the active device.
@@ -52,9 +50,8 @@ void MyD3D12::LoadPipeline()
         }
     }
 #endif
-//*/
 
-    ComPtr<IDXGIFactory4> factory;  ////DXGI factory is used to create device
+    ComPtr<IDXGIFactory4> factory;  //DXGI factory is used to create device
     ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory)));
 
     if (m_useWarpDevice)    //create software adapter
@@ -66,7 +63,7 @@ void MyD3D12::LoadPipeline()
             warpAdapter.Get(),
             D3D_FEATURE_LEVEL_11_0,     //Specifies the highest version is D3D12
             IID_PPV_ARGS(&m_device)
-            ));
+        ));
     }
     else   //create hardware adapter
     {
@@ -76,8 +73,8 @@ void MyD3D12::LoadPipeline()
         ThrowIfFailed(D3D12CreateDevice(
             hardwareAdapter.Get(),
             D3D_FEATURE_LEVEL_11_0,
-            IID_PPV_ARGS(&m_device)
-            ));
+            IID_PPV_ARGS(m_device.GetAddressOf())
+        ));
     }
 
     // Describe and create the command queue.
@@ -126,29 +123,32 @@ void MyD3D12::LoadAssets()
     BuildShaderAndInputLayout();
 
     BuildPSO();
-
     // Create the command list.
     ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator.Get(), nullptr, IID_PPV_ARGS(&m_commandList)));
     NAME_D3D12_OBJECT(m_commandList);
 
     BuildModel();
 
-    BuildRenderer();
+    LoadTexture();
 
-    BuildFrameResources();
+    BuildMaterial();
 
     BuildDescriptorHeaps();
 
     BuildRTVDSV();
 
-    BuildCBV();
+    BuildCBVSRV();
+
+    BuildRenderer();
+
+    BuildFrameResources();
 
     // Close the command list and execute it to begin the initial GPU setup.
     ThrowIfFailed(m_commandList->Close());
     ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
     m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
-    // Create synchronization objects and wait until assets have been uploaded to the GPU.
+    // Create synchronization objects and wait until assets have been uploaded to the GPU
     {
         ThrowIfFailed(m_device->CreateFence(m_fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
         m_fenceValue++;
@@ -200,7 +200,7 @@ void MyD3D12::OnUpdate()
     m_pCurrentFrameResource = m_frameResources[m_currentFrameResourceIndex].get();
 
     // Make sure that this frame resource isn't still in use by the GPU.
-    // If it is, wait for it to complete.
+    // If it is, wait for it to complete
     if (m_pCurrentFrameResource->fenceValue != 0 && m_pCurrentFrameResource->fenceValue > lastCompletedFence)
     {
         ThrowIfFailed(m_fence->SetEventOnCompletion(m_pCurrentFrameResource->fenceValue, m_fenceEvent));
@@ -209,9 +209,11 @@ void MyD3D12::OnUpdate()
 
     m_camera.Update(static_cast<float>(m_timer.GetElapsedSeconds()));
 
-    m_pCurrentFrameResource->UpdateObjectConstantBuffers(std::move(m_allRenderers));
+    m_pCurrentFrameResource->UpdateObjectConstantBuffers(m_allRenderers);
 
-    m_pCurrentFrameResource->UpdatePassConstantBuffers(m_camera.GetViewMatrix(), m_camera.GetProjectionMatrix(0.8f, m_aspectRatio));
+    m_pCurrentFrameResource->UpdatePassConstantBuffers(m_camera.GetViewMatrix(), m_camera.GetProjectionMatrix(0.8f, m_aspectRatio), m_camera.GetPosition());
+
+    m_pCurrentFrameResource->UpdateMaterialConstantBuffers(m_materials);
 }
 
 // Render the scene.
@@ -258,54 +260,49 @@ void MyD3D12::OnDestroy()
             ThrowIfFailed(m_fence->SetEventOnCompletion(fence, m_fenceEvent));
             WaitForSingleObject(m_fenceEvent, INFINITE);
         }
+
+        m_fence.Reset();
     }
+}
+
+void MyD3D12::BuildShaderAndInputLayout()
+{
+    m_shaders["VS"] = CompileShader(GetAssetFullPath(L"VertexShader.hlsl").c_str(), nullptr, "main", "vs_5_1");
+    m_shaders["PS"] = CompileShader(GetAssetFullPath(L"PixelShader.hlsl").c_str(), nullptr, "main", "ps_5_1");
+
+    m_inputLayout =
+    {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }, 
+        //{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        //{ "BINORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 44, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
+    };
 }
 
 void MyD3D12::BuildRootSignature()
 {
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
 
-    /* 
-        This is the highest version the sample supports.
-        If CheckFeatureSupport succeeds, the HighestVersion returned will not be greater than this.
-    */
-    featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
-
-    if (FAILED(m_device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
-    {
-        featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
-    }
-
     CD3DX12_DESCRIPTOR_RANGE ranges[2];
-    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
-    ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
+    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0);  // register t0, t1
 
-    CD3DX12_ROOT_PARAMETER rootParameters[2];
-    rootParameters[0].InitAsDescriptorTable(1, &ranges[0]);
-    rootParameters[1].InitAsDescriptorTable(1, &ranges[1]);
+    CD3DX12_ROOT_PARAMETER rootParameters[4];
+    rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL);
+    rootParameters[1].InitAsConstantBufferView(0);  // register b0
+    rootParameters[2].InitAsConstantBufferView(1);  // register b1
+    rootParameters[3].InitAsConstantBufferView(2);  // register b2
 
-    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-    rootSignatureDesc.Init_1_0(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+    auto staticSamplers = Core::GetStaticSamplers();
 
-    ComPtr<ID3DBlob> signature;
-    ComPtr<ID3DBlob> error;
-    ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, featureData.HighestVersion, &signature, &error));
+    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+    rootSignatureDesc.Init(_countof(rootParameters), rootParameters, staticSamplers.size(), staticSamplers.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+    ComPtr<ID3DBlob> signature = nullptr;
+    ComPtr<ID3DBlob> error = nullptr;
+    ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
     ThrowIfFailed(m_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
     NAME_D3D12_OBJECT(m_rootSignature);
-}
-
-void MyD3D12::BuildShaderAndInputLayout()
-{
-    m_shaders["VS"] = CompileShader(GetAssetFullPath(L"shaders.hlsl").c_str(), nullptr, "VSMain", "vs_5_1");
-    m_shaders["PS"] = CompileShader(GetAssetFullPath(L"shaders.hlsl").c_str(), nullptr, "PSMain", "ps_5_1");
-
-    m_inputLayout =
-    {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
-    };
 }
 
 void MyD3D12::BuildPSO()
@@ -313,14 +310,14 @@ void MyD3D12::BuildPSO()
     // Describe and create the graphics pipeline state object (PSO).
     D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePSODesc = {};
 
-    opaquePSODesc.InputLayout = { m_inputLayout.data(), (uint32_t)m_inputLayout.size()};
+    opaquePSODesc.InputLayout = { m_inputLayout.data(), (uint32_t)m_inputLayout.size() };
     opaquePSODesc.pRootSignature = m_rootSignature.Get();
     opaquePSODesc.VS =
     {
         reinterpret_cast<BYTE*>(m_shaders["VS"]->GetBufferPointer()),
         m_shaders["VS"]->GetBufferSize()
     };
-    opaquePSODesc.PS = 
+    opaquePSODesc.PS =
     {
         reinterpret_cast<BYTE*>(m_shaders["PS"]->GetBufferPointer()),
         m_shaders["PS"]->GetBufferSize()
@@ -342,130 +339,171 @@ void MyD3D12::BuildPSO()
 
 void MyD3D12::BuildModel()
 {
-    Model ElysiaBody("ModelFile/elysia/body.obj");
-    Model ElysiaSword("ModelFile/lisushang/body.obj");
-
-    auto elysiaBodyVertices = ElysiaBody.GetVertices();
-    auto elysiaBodyIndices = ElysiaBody.GetIndices();
-    assert(elysiaBodyVertices.size() > 0);
-    assert(elysiaBodyIndices.size() > 0);
-
-    auto elysiaSwordVertices = ElysiaSword.GetVertices();
-    auto elysiaSwordIndices = ElysiaSword.GetIndices();
-    assert(elysiaSwordVertices.size() > 0);
-    assert(elysiaBodyIndices.size() > 0);
-
-    uint32_t elysiaBodyVertexOffset = 0;
-    uint32_t elysiaSwordVertexOffset = elysiaBodyVertices.size();
-
-    uint32_t elysiaBodyIndexOffset = 0;
-    uint32_t elysiaSwordIndexOffset = elysiaBodyIndices.size();
-
-    auto pElysiaBodyDraw = std::make_unique<Geometrie::Draw>();
-    pElysiaBodyDraw->baseVertex = elysiaBodyVertexOffset;
-    pElysiaBodyDraw->indexCount = (UINT)elysiaBodyIndices.size();
-    pElysiaBodyDraw->startIndex = elysiaBodyIndexOffset;
-
-    auto pElysiaSwordDraw = std::make_unique<Geometrie::Draw>();
-    pElysiaSwordDraw->baseVertex = elysiaSwordVertexOffset;
-    pElysiaSwordDraw->indexCount = (UINT)elysiaSwordIndices.size();
-    pElysiaSwordDraw->startIndex = elysiaSwordIndexOffset;
-
-    auto totalVertexCount = elysiaBodyVertices.size() + elysiaSwordVertices.size();
-    std::vector<Vertex> localVertices(totalVertexCount);
+    m_models.push_back(std::make_unique<Model::ModelLoader>("ModelFile/diablo3_pose/diablo3_pose.obj"));
+    assert(m_models.size() != 0);
     
-    uint32_t k = 0;
-    for (size_t i = 0; i < elysiaBodyVertices.size(); ++i, ++k)
+    std::vector<Model::Vertex> totalVertex;
+    std::vector<uint32_t> totalIndex;
+    assert(totalVertex.size() == 0);
+    assert(totalIndex.size() == 0);
+
+    for (size_t i = 0; i < m_models.size(); ++i)
     {
-        localVertices[k].position = elysiaBodyVertices[i].position;
-        localVertices[k].normal = elysiaBodyVertices[i].normal;
-        localVertices[k].tangent = elysiaBodyVertices[i].tangent;
-        localVertices[k].texCoord = elysiaBodyVertices[i].texCoord;
+        auto& pCurrModel = m_models[i];
+
+        auto& modelVertices = pCurrModel->GetVertices();
+        auto& modelIndices = pCurrModel->GetIndices();
+        assert(modelVertices.size() != 0);
+        assert(modelIndices.size() != 0);
+
+        auto pModelDraw = std::make_unique<Model::Geometrie::Draw>();
+        pModelDraw->baseVertex = (UINT)totalVertex.size();
+        pModelDraw->startIndex = (UINT)totalIndex.size();
+        pModelDraw->indexCount = (UINT)modelIndices.size();
+
+        m_draws.push_back(std::move(pModelDraw));
+
+        totalVertex.insert(totalVertex.end(), modelVertices.begin(), modelVertices.end());
+        totalIndex.insert(totalIndex.end(), modelIndices.begin(), modelIndices.end());
     }
 
-    for (size_t i = 0; i < elysiaSwordVertices.size(); ++i, ++k)
-    {
-        localVertices[k].position = elysiaSwordVertices[i].position;
-        localVertices[k].normal = elysiaSwordVertices[i].normal;
-        localVertices[k].tangent = elysiaSwordVertices[i].tangent;
-        localVertices[k].texCoord = elysiaSwordVertices[i].texCoord;
-    }
-    
-    std::vector<uint32_t> localIndices;
-    localIndices.insert(localIndices.end(), std::begin(elysiaBodyIndices), std::end(elysiaBodyIndices));
-    localIndices.insert(localIndices.end(),  std::begin(elysiaSwordIndices),  std::end(elysiaSwordIndices));
+    const uint32_t vbSize = (uint32_t)totalVertex.size() * sizeof(Model::Vertex);
+    const uint32_t ibSize = (uint32_t)totalIndex.size() * sizeof(uint32_t);
 
-    const uint32_t vbSize = (uint32_t)localVertices.size() * sizeof(Vertex);
-    const uint32_t ibSize = (uint32_t)localIndices.size() * sizeof(uint32_t);
-
-    auto pGeo = std::make_unique<Geometrie>();
-    pGeo->name = "character";
+    auto pGeo = std::make_unique<Model::Geometrie>();
+    pGeo->name = "xier";
     pGeo->vbSize = vbSize;
     pGeo->ibSize = ibSize;
-    pGeo->vbStride = sizeof(Vertex);
+    pGeo->vbStride = sizeof(Model::Vertex);
     pGeo->ibFormat = DXGI_FORMAT_R32_UINT;
     pGeo->ibOffset = 0;
     pGeo->vbOffset = 0;
     
     ThrowIfFailed(D3DCreateBlob(vbSize, &pGeo->vertexBufferCPU));
-    CopyMemory(pGeo->vertexBufferCPU->GetBufferPointer(), localVertices.data(), vbSize);
+    CopyMemory(pGeo->vertexBufferCPU->GetBufferPointer(), totalVertex.data(), vbSize);
 
     ThrowIfFailed(D3DCreateBlob(ibSize, &pGeo->indexBufferCPU));
-    CopyMemory(pGeo->indexBufferCPU->GetBufferPointer(), localIndices.data(), ibSize);
+    CopyMemory(pGeo->indexBufferCPU->GetBufferPointer(), totalIndex.data(), ibSize);
 
-    pGeo->vertexBufferGPU = CreateDefaultBuffer(m_device.Get(), m_commandList.Get(), localVertices.data(), vbSize, pGeo->vertexUploadBuffer);
+    pGeo->vertexBufferGPU = Core::CreateDefaultBuffer(m_device.Get(), m_commandList.Get(), totalVertex.data(), vbSize, pGeo->vertexUploadBuffer);
 
-    pGeo->indexBufferGPU = CreateDefaultBuffer(m_device.Get(), m_commandList.Get(), localIndices.data(), ibSize, pGeo->indexUploadBuffer);
+    pGeo->indexBufferGPU = Core::CreateDefaultBuffer(m_device.Get(), m_commandList.Get(), totalIndex.data(), ibSize, pGeo->indexUploadBuffer);
 
-    m_draws["ElysiaBody"] = std::move(pElysiaBodyDraw);
-    m_draws["LiSuShangBody"] = std::move(pElysiaSwordDraw);
+    m_geometries.push_back(std::move(pGeo));
 
-    m_geometries[pGeo->name] = std::move(pGeo);
+    assert(m_geometries.size() != 0);
+}
+
+void MyD3D12::LoadTexture()
+{
+    for (size_t i = 0; i < m_models.size(); ++i)
+    {
+        auto pTexture = std::make_unique<Core::Texture>();
+
+        auto textureName = m_models[i]->GetTextureName();
+        auto textureFileName = m_models[i]->GetDirectory() + textureName + "_diffuse.dds";
+        OutputDebugStringA((textureName + "_diffuse" + '\n').c_str());
+        OutputDebugStringA((textureFileName + '\n').c_str());
+
+        pTexture->name = textureName;
+        pTexture->fileName = Util::UTF8ToWideString(textureFileName);
+
+        ThrowIfFailed(LoadDDSTextureFromFile(
+            m_device.Get(),
+            pTexture->fileName.c_str(),
+            &pTexture->defaultTexture,
+            pTexture->ddsData,
+            pTexture->subResources
+        ));
+
+        Core::CreateD3DResource(m_device.Get(), m_commandList.Get(), pTexture->subResources, pTexture->defaultTexture, pTexture->uploadTexture);
+
+        m_diffuseTextures.push_back(std::move(pTexture));
+    }
+
+    for (size_t i = 0; i < m_models.size(); ++i)
+    {
+        auto pTexture = std::make_unique<Core::Texture>();
+
+        auto textureName = m_models[i]->GetTextureName();
+        auto textureFileName = m_models[i]->GetDirectory() + textureName + "_specular.dds";
+        OutputDebugStringA((textureName + "_specular" + '\n').c_str());
+        OutputDebugStringA((textureFileName + '\n').c_str());
+
+        pTexture->name = textureName;
+        pTexture->fileName = Util::UTF8ToWideString(textureFileName);
+
+        ThrowIfFailed(LoadDDSTextureFromFile(
+            m_device.Get(),
+            pTexture->fileName.c_str(),
+            &pTexture->defaultTexture,
+            pTexture->ddsData,
+            pTexture->subResources
+        ));
+
+        Core::CreateD3DResource(m_device.Get(), m_commandList.Get(), pTexture->subResources, pTexture->defaultTexture, pTexture->uploadTexture);
+
+        m_specularTextures.push_back(std::move(pTexture));
+    }
+
+    assert(m_specularTextures.size() != 0);
+}
+
+void MyD3D12::BuildMaterial()
+{
+    for (size_t i = 0; i < m_diffuseTextures.size(); ++i)
+    {
+        auto pMaterial = std::make_unique<Core::Material>();
+
+        std::string temp = m_models[i]->GetTextureName();
+        pMaterial->name = temp.substr(0, temp.find_last_of('_'));
+        pMaterial->materialCBIndex = i;
+        pMaterial->diffuseSrvHeapIndex = 2 * i;
+        pMaterial->specularSrvHeapIndex = 2 * i + 1;
+        pMaterial->numFramesDirty = FrameCount;
+        pMaterial->specualrShiness = 16;
+        pMaterial->ambientAlbedo = 0.1;
+
+        m_materials.push_back(std::move(pMaterial));
+    }
+    assert(m_materials.size() != 0);
 }
 
 void MyD3D12::BuildRenderer()
 {
-    auto pElysiaRenderer = std::make_unique<Renderer>();
+    for (size_t i = 0; i < m_draws.size(); ++i)
+    {
+        auto pRenderer = std::make_unique<Core::Renderer>();
 
-    auto elysiaWorld = DirectX::XMMatrixTranslation(-10.f, 0.f, 0.f) * DirectX::XMMatrixRotationY(MathHelper::Pi);
-    XMStoreFloat4x4(&pElysiaRenderer->world, elysiaWorld);
-    pElysiaRenderer->objectIndex = 0;
-    pElysiaRenderer->numFramesDirty = FrameCount;
-    pElysiaRenderer->pGeo = m_geometries["character"].get();
-    pElysiaRenderer->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-    pElysiaRenderer->indexCount = m_draws["ElysiaBody"]->indexCount;
-    pElysiaRenderer->startIndex = m_draws["ElysiaBody"]->startIndex;
-    pElysiaRenderer->baseVertex = m_draws["ElysiaBody"]->baseVertex;
+        XMStoreFloat4x4(&pRenderer->world, DirectX::XMMatrixRotationY(MathHelper::Pi));
+        pRenderer->objectIndex = i;
+        pRenderer->numFramesDirty = FrameCount;
+        pRenderer->pGeometry = m_geometries[0].get();
+        pRenderer->pMaterail = m_materials[i].get();
+        pRenderer->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+        pRenderer->indexCount = m_draws[i]->indexCount;
+        pRenderer->startIndex = m_draws[i]->startIndex;
+        pRenderer->baseVertex = m_draws[i]->baseVertex;
 
-    m_allRenderers.push_back(std::move(pElysiaRenderer));
-
-
-    auto pLiSuShangRenderer = std::make_unique<Renderer>();
-
-    auto liSuShangWorld = DirectX::XMMatrixTranslation(10.f, 0.f, 0.f) * DirectX::XMMatrixRotationY(MathHelper::Pi);
-    XMStoreFloat4x4(&pLiSuShangRenderer->world, liSuShangWorld);
-    pLiSuShangRenderer->objectIndex = 1;
-    pLiSuShangRenderer->numFramesDirty = FrameCount;
-    pLiSuShangRenderer->pGeo = m_geometries["character"].get();
-    pLiSuShangRenderer->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-    pLiSuShangRenderer->indexCount = m_draws["LiSuShangBody"]->indexCount;
-    pLiSuShangRenderer->startIndex = m_draws["LiSuShangBody"]->startIndex;
-    pLiSuShangRenderer->baseVertex = m_draws["LiSuShangBody"]->baseVertex;
-        
-    m_allRenderers.push_back(std::move(pLiSuShangRenderer));
+        m_allRenderers.push_back(std::move(pRenderer));
+    }
+    assert(m_allRenderers.size() != 0);
 
     for (auto& r : m_allRenderers)
     {
         m_opaqueRenderers.push_back(r.get());
     }
+    assert(m_opaqueRenderers.size() != 0);
 }
 
 void MyD3D12::BuildFrameResources()
 {
     for (UINT i = 0; i < FrameCount; ++i)
     {
-        m_frameResources.push_back(std::make_unique<FrameResource>(m_device.Get(), 1, (uint32_t)m_allRenderers.size()));
+        m_frameResources.push_back(std::make_unique<Core::FrameResource>(m_device.Get(), 1, m_allRenderers.size(), m_materials.size()));
     }
+
+    assert(m_frameResources.size() != 0);
 }
 
 void MyD3D12::BuildDescriptorHeaps()
@@ -486,19 +524,19 @@ void MyD3D12::BuildDescriptorHeaps()
 
     // create a const buffer view(CBV) descriptor heap
 
-    m_passCBVOffset = (UINT)m_opaqueRenderers.size() * FrameCount;
+    // descriptor table : m_passCBVOffset = (UINT)m_opaqueRenderers.size() * FrameCount;
 
-    D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
-    cbvHeapDesc.NumDescriptors = (uint32_t)(m_opaqueRenderers.size() + 1) * FrameCount;
-    cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_cbvHeap)));
-    NAME_D3D12_OBJECT(m_cbvHeap);
+    D3D12_DESCRIPTOR_HEAP_DESC cbvSrvHeapDesc = {};
+    cbvSrvHeapDesc.NumDescriptors = m_diffuseTextures.size() + m_specularTextures.size();
+    cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&m_cbvSrvHeap)));
+    NAME_D3D12_OBJECT(m_cbvSrvHeap);
 
     // Once we create the RTV descriptor heap, we need to get the size of the RTV descriptor type size on the GPU
     // There is no guarentee that a descriptor type on one GPU is the same size as a descriptor on another GPU
     m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    m_cbvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    m_cbvSrvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
 void MyD3D12::BuildRTVDSV()
@@ -545,8 +583,10 @@ void MyD3D12::BuildRTVDSV()
     }
 }
 
-void MyD3D12::BuildCBV()
+void MyD3D12::BuildCBVSRV()
 {
+    /*
+
     // create object constant buffer view descriptor
     {
         auto objectCBSize = CalcConstantBufferByteSize(sizeof(ObjectConstantBuffer));
@@ -560,7 +600,7 @@ void MyD3D12::BuildCBV()
                 currObjectCBAdress += i * objectCBSize;
 
                 int heapIndex = frameIndex * m_opaqueRenderers.size() + i;
-                auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_cbvHeap->GetCPUDescriptorHandleForHeapStart(), heapIndex, m_cbvDescriptorSize);
+                auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_cbvHeap->GetCPUDescriptorHandleForHeapStart(), heapIndex, m_cbvSrvDescriptorSize);
 
                 D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
                 cbvDesc.BufferLocation = currObjectCBAdress;
@@ -582,13 +622,52 @@ void MyD3D12::BuildCBV()
             D3D12_GPU_VIRTUAL_ADDRESS currPassCBAdress = currPassCB->GetGPUVirtualAddress();
 
             int heapIndex = m_passCBVOffset + frameIndex;
-            auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_cbvHeap->GetCPUDescriptorHandleForHeapStart(), heapIndex, m_cbvDescriptorSize);
+            auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_cbvHeap->GetCPUDescriptorHandleForHeapStart(), heapIndex, m_cbvSrvDescriptorSize);
 
             D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
             cbvDesc.BufferLocation = currPassCBAdress;
             cbvDesc.SizeInBytes = passCBSize;
 
             m_device->CreateConstantBufferView(&cbvDesc, handle);
+        }
+    }
+
+    */
+
+    // create srv descriptor
+    {
+        CD3DX12_CPU_DESCRIPTOR_HANDLE hSRVDescriptor(m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart());
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvDesc.Texture2D.MostDetailedMip = 0;  // the index of the most detailed mipmap level to use
+        srvDesc.Texture2D.ResourceMinLODClamp = 0.f;    // min mipmap level that you can access. 0.0f means access all of mipmap levels
+
+        for (auto& pTexture : m_diffuseTextures)
+        {
+            auto currTexture = pTexture->defaultTexture;
+            
+            srvDesc.Format = currTexture->GetDesc().Format;
+            srvDesc.Texture2D.MipLevels = currTexture->GetDesc().MipLevels;   // combine with MostDetailedMip
+
+            m_device->CreateShaderResourceView(currTexture.Get(), &srvDesc, hSRVDescriptor);
+
+            hSRVDescriptor.Offset(2, m_cbvSrvDescriptorSize);
+        }
+
+        hSRVDescriptor = m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart();
+        hSRVDescriptor.Offset(1, m_cbvSrvDescriptorSize);
+        for (auto& pTexture : m_specularTextures)
+        {
+            auto currTexture = pTexture->defaultTexture;
+
+            srvDesc.Format = currTexture->GetDesc().Format;
+            srvDesc.Texture2D.MipLevels = currTexture->GetDesc().MipLevels;   // combine with MostDetailedMip
+
+            m_device->CreateShaderResourceView(currTexture.Get(), &srvDesc, hSRVDescriptor);
+
+            hSRVDescriptor.Offset(2, m_cbvSrvDescriptorSize);
         }
     }
 }
@@ -621,7 +700,7 @@ void MyD3D12::PopulateCommandList()
     // Set necessary state
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
 
-    ID3D12DescriptorHeap* ppHeaps[] = { m_cbvHeap.Get() };
+    ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvHeap.Get() };
     m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
     m_commandList->RSSetViewports(1, &m_viewport);
@@ -641,7 +720,7 @@ void MyD3D12::PopulateCommandList()
 
     PIXBeginEvent(m_commandList.Get(), 0, L"Populate FrameResource");
 
-    m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_opaqueRenderers, m_cbvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvDescriptorSize);
+    m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_opaqueRenderers, m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
 
     PIXEndEvent(m_commandList.Get());
 
