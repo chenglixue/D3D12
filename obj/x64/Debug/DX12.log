@@ -1,8 +1,4 @@
-﻿  Main.cpp
-  ModelLoad.cpp
-C:\Users\97913\Desktop\DX12\ModelLoad.cpp(10,1): warning C4005: 'AI_CONFIG_PP_CT_MAX_SMOOTHING_ANGLE': macro redefinition
-C:\Users\97913\Desktop\DX12\assimp\config.h(148): message : see previous definition of 'AI_CONFIG_PP_CT_MAX_SMOOTHING_ANGLE'
-  MyD3D12.cpp
+﻿  MyD3D12.cpp
 C:\Users\97913\Desktop\DX12\MyD3D12.cpp(299,176): warning C4267: 'argument': conversion from 'size_t' to 'UINT', possible loss of data
 C:\Users\97913\Desktop\DX12\MyD3D12.cpp(460,39): warning C4267: '=': conversion from 'size_t' to 'UINT', possible loss of data
 C:\Users\97913\Desktop\DX12\MyD3D12.cpp(461,47): warning C4267: '=': conversion from 'size_t' to 'UINT', possible loss of data
@@ -16,5 +12,4 @@ C:\Users\97913\Desktop\DX12\MyD3D12.cpp(503): message : see reference to functio
           [
               T=ID3D12Device
           ]
-  Generating Code...
   DX12.vcxproj -> C:\Users\97913\Desktop\DX12\bin\x64\Debug\DX12.exe
