@@ -2,15 +2,15 @@
 #define MAX_LIGHT_COUNT 3
 
 #ifndef DIRECTION_LIGHT_COUNT
-	#define DIRECTION_LIGHT_COUNT 1
+#define DIRECTION_LIGHT_COUNT 1
 #endif
 
 #ifndef POINT_LIGHT_COUNT
-	#define POINT_LIGHT_COUNT 1
+#define POINT_LIGHT_COUNT 1
 #endif
 
 #ifndef SPOT_LIGHT_COUNT
-	#define SPOT_LIGHT_COUNT 1
+#define SPOT_LIGHT_COUNT 1
 #endif
 
 //-------------------------------------------------------------------------- declaration --------------------------------------------------------------------------
@@ -89,14 +89,14 @@ cbuffer PassCB : register(b1)
     Light lights[MAX_LIGHT_COUNT];
 }
 
-SamplerState g_SamperPointWrap           : register(s0);
-SamplerState g_SamperPointClamp          : register(s1);
-SamplerState g_SamperLinerWrap           : register(s2);
-SamplerState g_SamperLinerClamp          : register(s3);
-SamplerState g_SamperAnisotropyWrap      : register(s4);
-SamplerState g_SamperAnisotropyClamp     : register(s5);
+SamplerState g_SamperPointWrap : register(s0);
+SamplerState g_SamperPointClamp : register(s1);
+SamplerState g_SamperLinerWrap : register(s2);
+SamplerState g_SamperLinerClamp : register(s3);
+SamplerState g_SamperAnisotropyWrap : register(s4);
+SamplerState g_SamperAnisotropyClamp : register(s5);
 
-Texture2D g_diffuseTexture  : register(t0);
+Texture2D g_diffuseTexture : register(t0);
 Texture2D g_specularTexture : register(t1);
 
 //-------------------------------------------------------------------------- main function --------------------------------------------------------------------------
@@ -149,7 +149,7 @@ float3 CalcDiretionLight(Light light, Material material, float3 normal, float3 t
 
     float3 lightColor = max(dot(normal, toLightDir), 0) * light.lightColor;
 
-    return BlinnPhong(lightColor, toLightDir, normal, toEyeDir, material);
+    return BlinnPhong(light.lightColor, toLightDir, normal, toEyeDir, material);
 }
 
 // calculate point light
@@ -168,13 +168,10 @@ float3 CalcPointLight(Light light, Material material, float3 normal, float3 toEy
 	// normalize
     toLightDir /= d;
 	
-	// Lambert
-    float3 lightColor = max(dot(toLightDir, normal), 0.f) * light.lightColor;
-	
 	// calc attenuation accroding to distance
-    lightColor *= CalcAttenuation(light.falloffStart, light.falloffEnd, d);
+    light.lightColor *= CalcAttenuation(light.falloffStart, light.falloffEnd, d);
 	
-    return BlinnPhong(lightColor, toLightDir, normal, toEyeDir, material);
+    return BlinnPhong(light.lightColor, toLightDir, normal, toEyeDir, material);
 }
 
 // calculate spot light
@@ -193,17 +190,14 @@ float3 CaleSpotLight(Light light, Material material, float3 normal, float3 toEye
 	// normalize
     toLightDir /= d;
 	
-	// Lambert
-    float3 lightColor = max(dot(toLightDir, normal), 0.f) * light.lightColor;
-	
 	// calc attenuation accroding to distance
-    lightColor *= CalcAttenuation(light.falloffStart, light.falloffEnd, d);
+    light.lightColor *= CalcAttenuation(light.falloffStart, light.falloffEnd, d);
 	
 	// scale spot light strength
     float spotLightFactor = pow(max(0, dot(toLightDir, normal)), light.spotPower);
-    lightColor *= spotLightFactor;
+    light.lightColor *= spotLightFactor;
 
-    return BlinnPhong(lightColor, toLightDir, normal, toEyeDir, material);
+    return BlinnPhong(light.lightColor, toLightDir, normal, toEyeDir, material);
 }
 
 float4 CalcLightColor(Light lights[MAX_LIGHT_COUNT], Material material, float3 normal, float3 toEyeDir, float3 objectPos)
