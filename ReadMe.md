@@ -1,4 +1,4 @@
-This is DX12 simple engine——load model
+This is DX12 simple engine——shading and texture map
 
 In this instance, will show you how to BlinnPhong & texture map
 
