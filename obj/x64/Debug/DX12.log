@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ﻿C:\Users\97913\Desktop\DX12\bin\x64\Debug\PixelShader.hlsl(211,5-47): warning X3557: loop only executes for 1 iteration(s), forcing loop to unroll
 C:\Users\97913\Desktop\DX12\bin\x64\Debug\PixelShader.hlsl(220,5-87): warning X3557: loop only executes for 1 iteration(s), forcing loop to unroll
 C:\Users\97913\Desktop\DX12\bin\x64\Debug\PixelShader.hlsl(229,5-126): warning X3557: loop only executes for 1 iteration(s), forcing loop to unroll
@@ -5,4 +6,20 @@ C:\Users\97913\Desktop\DX12\bin\x64\Debug\PixelShader.hlsl(166,5): warning X4000
 C:\Users\97913\Desktop\DX12\bin\x64\Debug\PixelShader.hlsl(188,5): warning X4000: use of potentially uninitialized variable (CaleSpotLight)
   
   compilation object save succeeded; see C:\Users\97913\Desktop\DX12\bin\x64\Debug\PixelShader.cso
+=======
+﻿  MyD3D12.cpp
+C:\Users\97913\Desktop\DX12\MyD3D12.cpp(299,176): warning C4267: 'argument': conversion from 'size_t' to 'UINT', possible loss of data
+C:\Users\97913\Desktop\DX12\MyD3D12.cpp(460,39): warning C4267: '=': conversion from 'size_t' to 'UINT', possible loss of data
+C:\Users\97913\Desktop\DX12\MyD3D12.cpp(461,47): warning C4267: '=': conversion from 'size_t' to 'UINT', possible loss of data
+C:\Users\97913\Desktop\DX12\MyD3D12.cpp(462,52): warning C4267: '=': conversion from 'size_t' to 'UINT', possible loss of data
+C:\Users\97913\Desktop\DX12\MyD3D12.cpp(465,39): warning C4305: '=': truncation from 'double' to 'float'
+C:\Users\97913\Desktop\DX12\MyD3D12.cpp(479,35): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
+C:\Users\97913\Desktop\DX12\MyD3D12.cpp(530,89): warning C4267: '=': conversion from 'size_t' to 'UINT', possible loss of data
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.29.30133\include\memory(3382,1): warning C4267: 'argument': conversion from 'size_t' to 'uint32_t', possible loss of data
+C:\Users\97913\Desktop\DX12\MyD3D12.cpp(503): message : see reference to function template instantiation 'std::unique_ptr<Core::FrameResource,std::default_delete<Core::FrameResource>> std::make_unique<Core::FrameResource,T*,int,unsigned __int64,unsigned __int64,0>(T *&&,int &&,unsigned __int64 &&,unsigned __int64 &&)' being compiled
+          with
+          [
+              T=ID3D12Device
+          ]
+>>>>>>> 92c872a80aa8618e271e4c22379fd3e4bcf0c04e
   DX12.vcxproj -> C:\Users\97913\Desktop\DX12\bin\x64\Debug\DX12.exe
