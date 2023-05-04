@@ -147,8 +147,6 @@ float3 CalcDiretionLight(Light light, Material material, float3 normal, float3 t
 {
     float3 toLightDir = normalize(-light.lightDirection);
 
-    float3 lightColor = max(dot(normal, toLightDir), 0) * light.lightColor;
-
     return BlinnPhong(light.lightColor, toLightDir, normal, toEyeDir, material);
 }
 
