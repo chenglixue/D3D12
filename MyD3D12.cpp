@@ -211,7 +211,7 @@ void MyD3D12::OnUpdate()
 
     m_pCurrentFrameResource->UpdateObjectConstantBuffers(m_allRenderers);
 
-    m_pCurrentFrameResource->UpdatePassConstantBuffers(m_camera.GetViewMatrix(), m_camera.GetProjectionMatrix(0.8f, m_aspectRatio), m_camera.GetPosition());
+    m_pCurrentFrameResource->UpdatePassConstantBuffers(m_camera.GetViewMatrix(), m_camera.GetProjectionMatrix(1.f, m_aspectRatio), m_camera.GetPosition());
 
     m_pCurrentFrameResource->UpdateMaterialConstantBuffers(m_materials);
 }
@@ -267,16 +267,17 @@ void MyD3D12::OnDestroy()
 
 void MyD3D12::BuildShaderAndInputLayout()
 {
-    m_shaders["VS"] = CompileShader(GetAssetFullPath(L"VertexShader.hlsl").c_str(), nullptr, "main", "vs_5_1");
-    m_shaders["PS"] = CompileShader(GetAssetFullPath(L"PixelShader.hlsl").c_str(), nullptr, "main", "ps_5_1");
+    m_shaders["MainVS"] = CompileShader(GetAssetFullPath(L"MainVS.hlsl").c_str(), nullptr, "main", "vs_5_1");
+    m_shaders["MainPS"] = CompileShader(GetAssetFullPath(L"MainPS.hlsl").c_str(), nullptr, "main", "ps_5_1");
+
+    m_shaders["CubemapVS"] = CompileShader(GetAssetFullPath(L"CubemapVS.hlsl").c_str(), nullptr, "main", "vs_5_1");
+    m_shaders["CubemapPS"] = CompileShader(GetAssetFullPath(L"CubemapPS.hlsl").c_str(), nullptr, "main", "ps_5_1");
 
     m_inputLayout =
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }, 
-        //{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        //{ "BINORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 44, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 }
 
@@ -286,12 +287,14 @@ void MyD3D12::BuildRootSignature()
 
     CD3DX12_DESCRIPTOR_RANGE ranges[2];
     ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0);  // register t0, t1
+    ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2, 0);
 
-    CD3DX12_ROOT_PARAMETER rootParameters[4];
-    rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL);
-    rootParameters[1].InitAsConstantBufferView(0);  // register b0
-    rootParameters[2].InitAsConstantBufferView(1);  // register b1
-    rootParameters[3].InitAsConstantBufferView(2);  // register b2
+    CD3DX12_ROOT_PARAMETER rootParameters[5];
+    rootParameters[0].InitAsConstantBufferView(0);  // register b0
+    rootParameters[1].InitAsConstantBufferView(1);  // register b1
+    rootParameters[2].InitAsConstantBufferView(2);  // register b2
+    rootParameters[3].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL);
+    rootParameters[4].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_PIXEL);
 
     auto staticSamplers = Core::GetStaticSamplers();
 
@@ -314,13 +317,13 @@ void MyD3D12::BuildPSO()
     opaquePSODesc.pRootSignature = m_rootSignature.Get();
     opaquePSODesc.VS =
     {
-        reinterpret_cast<BYTE*>(m_shaders["VS"]->GetBufferPointer()),
-        m_shaders["VS"]->GetBufferSize()
+        reinterpret_cast<BYTE*>(m_shaders["MainVS"]->GetBufferPointer()),
+        m_shaders["MainVS"]->GetBufferSize()
     };
     opaquePSODesc.PS =
     {
-        reinterpret_cast<BYTE*>(m_shaders["PS"]->GetBufferPointer()),
-        m_shaders["PS"]->GetBufferSize()
+        reinterpret_cast<BYTE*>(m_shaders["MainPS"]->GetBufferPointer()),
+        m_shaders["MainPS"]->GetBufferSize()
     };
     opaquePSODesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
     opaquePSODesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
@@ -335,17 +338,39 @@ void MyD3D12::BuildPSO()
     ThrowIfFailed(m_device->CreateGraphicsPipelineState(&opaquePSODesc, IID_PPV_ARGS(&m_PSOs["opaque"])));
 
     NAME_D3D12_OBJECT(m_PSOs["opaque"]);
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC cubemapPSODesc = opaquePSODesc;
+    // forbide back culling 
+    cubemapPSODesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+    // let cubemap z = 1 pass z-test, otherwise it'll be failed in z-test because data of zbuffer is 1
+    cubemapPSODesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+    cubemapPSODesc.pRootSignature = m_rootSignature.Get();
+    cubemapPSODesc.VS =
+    {
+        reinterpret_cast<BYTE*>(m_shaders["CubemapVS"]->GetBufferPointer()),
+        m_shaders["CubemapVS"]->GetBufferSize()
+    };
+    cubemapPSODesc.PS =
+    {
+        reinterpret_cast<BYTE*>(m_shaders["CubemapPS"]->GetBufferPointer()),
+        m_shaders["CubemapPS"]->GetBufferSize()
+    };
+
+    ThrowIfFailed(m_device->CreateGraphicsPipelineState(&cubemapPSODesc, IID_PPV_ARGS(&m_PSOs["cubemap"])));
+
+    NAME_D3D12_OBJECT(m_PSOs["cubemap"]);
 }
 
 void MyD3D12::BuildModel()
 {
     m_models.push_back(std::make_unique<Model::ModelLoader>("ModelFile/diablo3_pose/diablo3_pose.obj"));
     assert(m_models.size() != 0);
+
+    Model::GeometryGenerator geoGen;
+    Model::GeometryGenerator::MeshData box = geoGen.CreateBox(1.f, 1.f, 1.f, 5);
     
     std::vector<Model::Vertex> totalVertex;
     std::vector<uint32_t> totalIndex;
-    assert(totalVertex.size() == 0);
-    assert(totalIndex.size() == 0);
 
     for (size_t i = 0; i < m_models.size(); ++i)
     {
@@ -367,11 +392,25 @@ void MyD3D12::BuildModel()
         totalIndex.insert(totalIndex.end(), modelIndices.begin(), modelIndices.end());
     }
 
+    // GeometryGenerator'draw
+    {
+        auto pDraw = std::make_unique<Model::Geometrie::Draw>();
+
+        pDraw->baseVertex = (UINT)totalVertex.size();
+        pDraw->startIndex = (UINT)totalIndex.size();
+        pDraw->indexCount = (UINT)box.Indices32.size();
+
+        m_draws.push_back(std::move(pDraw));
+
+        totalVertex.insert(totalVertex.end(), box.Vertices.begin(), box.Vertices.end());
+        totalIndex.insert(totalIndex.end(), box.Indices32.begin(), box.Indices32.end());
+    }
+
     const uint32_t vbSize = (uint32_t)totalVertex.size() * sizeof(Model::Vertex);
     const uint32_t ibSize = (uint32_t)totalIndex.size() * sizeof(uint32_t);
 
     auto pGeo = std::make_unique<Model::Geometrie>();
-    pGeo->name = "xier";
+    pGeo->name = "Geometrie";
     pGeo->vbSize = vbSize;
     pGeo->ibSize = ibSize;
     pGeo->vbStride = sizeof(Model::Vertex);
@@ -396,6 +435,7 @@ void MyD3D12::BuildModel()
 
 void MyD3D12::LoadTexture()
 {
+    // diffuse dds
     for (size_t i = 0; i < m_models.size(); ++i)
     {
         auto pTexture = std::make_unique<Core::Texture>();
@@ -421,6 +461,7 @@ void MyD3D12::LoadTexture()
         m_diffuseTextures.push_back(std::move(pTexture));
     }
 
+    // specular dds
     for (size_t i = 0; i < m_models.size(); ++i)
     {
         auto pTexture = std::make_unique<Core::Texture>();
@@ -447,11 +488,33 @@ void MyD3D12::LoadTexture()
     }
 
     assert(m_specularTextures.size() != 0);
+
+    // sky box
+    {
+        auto pSkybox = std::make_unique<Core::Texture>();
+
+        pSkybox->name = "skybox";
+        pSkybox->fileName = Util::UTF8ToWideString("ModelFile/skybox/skybox.dds");
+        OutputDebugStringA("ModelFile/skybox2/skybox.dds");
+
+        ThrowIfFailed(LoadDDSTextureFromFile(
+            m_device.Get(),
+            pSkybox->fileName.c_str(),
+            &pSkybox->defaultTexture,
+            pSkybox->ddsData,
+            pSkybox->subResources
+        ));
+
+        Core::CreateD3DResource(m_device.Get(), m_commandList.Get(), pSkybox->subResources, pSkybox->defaultTexture, pSkybox->uploadTexture);
+
+        m_cubemaps[pSkybox->name] = std::move(pSkybox);
+    }
 }
 
 void MyD3D12::BuildMaterial()
 {
-    for (size_t i = 0; i < m_diffuseTextures.size(); ++i)
+    // model's material
+    for (size_t i = 0; i < m_models.size(); ++i)
     {
         auto pMaterial = std::make_unique<Core::Material>();
 
@@ -461,17 +524,34 @@ void MyD3D12::BuildMaterial()
         pMaterial->diffuseSrvHeapIndex = 2 * i;
         pMaterial->specularSrvHeapIndex = 2 * i + 1;
         pMaterial->numFramesDirty = FrameCount;
-        pMaterial->specualrShiness = 16;
+        pMaterial->specualrShiness = 64;
         pMaterial->ambientAlbedo = 0.1;
 
         m_materials.push_back(std::move(pMaterial));
     }
+
+    // cubemap's material
+    {
+        auto pMaterial = std::make_unique<Core::Material>();
+
+        int index = m_models.size();
+        pMaterial->name = "skybox";
+        pMaterial->materialCBIndex = index;
+        pMaterial->diffuseSrvHeapIndex = 2 * index;
+        pMaterial->numFramesDirty = FrameCount;
+        pMaterial->specualrShiness = 64;
+        pMaterial->ambientAlbedo = 0.1;
+
+        m_materials.push_back(std::move(pMaterial));
+    }
+
     assert(m_materials.size() != 0);
 }
 
 void MyD3D12::BuildRenderer()
 {
-    for (size_t i = 0; i < m_draws.size(); ++i)
+    size_t i = 0;
+    for (; i < m_models.size(); ++i)
     {
         auto pRenderer = std::make_unique<Core::Renderer>();
 
@@ -485,15 +565,29 @@ void MyD3D12::BuildRenderer()
         pRenderer->startIndex = m_draws[i]->startIndex;
         pRenderer->baseVertex = m_draws[i]->baseVertex;
 
+        m_renderLayers[(int)Core::RenderLayer::Opaque].push_back(pRenderer.get());
         m_allRenderers.push_back(std::move(pRenderer));
     }
-    assert(m_allRenderers.size() != 0);
-
-    for (auto& r : m_allRenderers)
+    
     {
-        m_opaqueRenderers.push_back(r.get());
+        auto pRenderer = std::make_unique<Core::Renderer>();
+
+        XMStoreFloat4x4(&pRenderer->world, DirectX::XMMatrixScaling(5000.f, 5000.f, 5000.f));
+        pRenderer->objectIndex = i;
+        pRenderer->numFramesDirty = FrameCount;
+        pRenderer->pGeometry = m_geometries[0].get();
+        pRenderer->pMaterail = m_materials[i].get();
+        pRenderer->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+        pRenderer->indexCount = m_draws[i]->indexCount;
+        pRenderer->startIndex = m_draws[i]->startIndex;
+        pRenderer->baseVertex = m_draws[i]->baseVertex;
+
+        m_renderLayers[(int)Core::RenderLayer::Sky].push_back(pRenderer.get());
+        m_allRenderers.push_back(std::move(pRenderer));
     }
-    assert(m_opaqueRenderers.size() != 0);
+
+    assert(m_allRenderers.size() != 0);
+    assert(m_renderLayers[(int)Core::RenderLayer::Sky].size() != 0);
 }
 
 void MyD3D12::BuildFrameResources()
@@ -523,11 +617,8 @@ void MyD3D12::BuildDescriptorHeaps()
     ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
 
     // create a const buffer view(CBV) descriptor heap
-
-    // descriptor table : m_passCBVOffset = (UINT)m_opaqueRenderers.size() * FrameCount;
-
     D3D12_DESCRIPTOR_HEAP_DESC cbvSrvHeapDesc = {};
-    cbvSrvHeapDesc.NumDescriptors = m_diffuseTextures.size() + m_specularTextures.size();
+    cbvSrvHeapDesc.NumDescriptors = m_diffuseTextures.size() + m_specularTextures.size() + m_cubemaps.size();
     cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&m_cbvSrvHeap)));
@@ -585,55 +676,6 @@ void MyD3D12::BuildRTVDSV()
 
 void MyD3D12::BuildCBVSRV()
 {
-    /*
-
-    // create object constant buffer view descriptor
-    {
-        auto objectCBSize = CalcConstantBufferByteSize(sizeof(ObjectConstantBuffer));
-
-        for (size_t frameIndex = 0; frameIndex < FrameCount; ++frameIndex)
-        {
-            auto currObjectCB = m_frameResources[frameIndex]->objectUploadCB->Resource();
-            for (size_t i = 0; i < m_opaqueRenderers.size(); ++i)
-            {
-                D3D12_GPU_VIRTUAL_ADDRESS currObjectCBAdress = currObjectCB->GetGPUVirtualAddress();
-                currObjectCBAdress += i * objectCBSize;
-
-                int heapIndex = frameIndex * m_opaqueRenderers.size() + i;
-                auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_cbvHeap->GetCPUDescriptorHandleForHeapStart(), heapIndex, m_cbvSrvDescriptorSize);
-
-                D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-                cbvDesc.BufferLocation = currObjectCBAdress;
-                cbvDesc.SizeInBytes = objectCBSize;
-
-                m_device->CreateConstantBufferView(&cbvDesc, handle);
-            }
-        }
-    }
-
-    // create pass constant buffer view descriptor
-    {
-        auto passCBSize = CalcConstantBufferByteSize(sizeof(PassConstantBuffer));
-
-        for (size_t frameIndex = 0; frameIndex < FrameCount; ++frameIndex)
-        {
-            auto currPassCB = m_frameResources[frameIndex]->passUploadCB->Resource();
-            
-            D3D12_GPU_VIRTUAL_ADDRESS currPassCBAdress = currPassCB->GetGPUVirtualAddress();
-
-            int heapIndex = m_passCBVOffset + frameIndex;
-            auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_cbvHeap->GetCPUDescriptorHandleForHeapStart(), heapIndex, m_cbvSrvDescriptorSize);
-
-            D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-            cbvDesc.BufferLocation = currPassCBAdress;
-            cbvDesc.SizeInBytes = passCBSize;
-
-            m_device->CreateConstantBufferView(&cbvDesc, handle);
-        }
-    }
-
-    */
-
     // create srv descriptor
     {
         CD3DX12_CPU_DESCRIPTOR_HANDLE hSRVDescriptor(m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart());
@@ -644,30 +686,45 @@ void MyD3D12::BuildCBVSRV()
         srvDesc.Texture2D.MostDetailedMip = 0;  // the index of the most detailed mipmap level to use
         srvDesc.Texture2D.ResourceMinLODClamp = 0.f;    // min mipmap level that you can access. 0.0f means access all of mipmap levels
 
-        for (auto& pTexture : m_diffuseTextures)
+        for (size_t i = 0; i < m_models.size(); ++i)
         {
-            auto currTexture = pTexture->defaultTexture;
-            
-            srvDesc.Format = currTexture->GetDesc().Format;
-            srvDesc.Texture2D.MipLevels = currTexture->GetDesc().MipLevels;   // combine with MostDetailedMip
+            // diffuse texture
+            {
+                auto pCurrTexture = m_diffuseTextures[i]->defaultTexture;
 
-            m_device->CreateShaderResourceView(currTexture.Get(), &srvDesc, hSRVDescriptor);
+                srvDesc.Format = pCurrTexture->GetDesc().Format;
+                srvDesc.Texture2D.MipLevels = pCurrTexture->GetDesc().MipLevels;   // combine with MostDetailedMip
 
-            hSRVDescriptor.Offset(2, m_cbvSrvDescriptorSize);
+                m_device->CreateShaderResourceView(pCurrTexture.Get(), &srvDesc, hSRVDescriptor);
+
+                hSRVDescriptor.Offset(1, m_cbvSrvDescriptorSize);
+            }
+
+            // specular texture
+            {
+                auto pCurrTexture = m_specularTextures[i]->defaultTexture;
+
+                srvDesc.Format = pCurrTexture->GetDesc().Format;
+                srvDesc.Texture2D.MipLevels = pCurrTexture->GetDesc().MipLevels;   // combine with MostDetailedMip
+
+                m_device->CreateShaderResourceView(pCurrTexture.Get(), &srvDesc, hSRVDescriptor);
+
+                hSRVDescriptor.Offset(1, m_cbvSrvDescriptorSize);
+            }
         }
 
-        hSRVDescriptor = m_cbvSrvHeap->GetCPUDescriptorHandleForHeapStart();
-        hSRVDescriptor.Offset(1, m_cbvSrvDescriptorSize);
-        for (auto& pTexture : m_specularTextures)
+        // cubemap texture
         {
-            auto currTexture = pTexture->defaultTexture;
+            auto pCurrTexture = m_cubemaps["skybox"]->defaultTexture;
 
-            srvDesc.Format = currTexture->GetDesc().Format;
-            srvDesc.Texture2D.MipLevels = currTexture->GetDesc().MipLevels;   // combine with MostDetailedMip
+            srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+            srvDesc.TextureCube.MostDetailedMip = 0;
+            srvDesc.TextureCube.MipLevels = pCurrTexture->GetDesc().MipLevels;
+            srvDesc.Format = pCurrTexture->GetDesc().Format;
 
-            m_device->CreateShaderResourceView(currTexture.Get(), &srvDesc, hSRVDescriptor);
+            m_device->CreateShaderResourceView(pCurrTexture.Get(), &srvDesc, hSRVDescriptor);
 
-            hSRVDescriptor.Offset(2, m_cbvSrvDescriptorSize);
+            hSRVDescriptor.Offset(1, m_cbvSrvDescriptorSize);
         }
     }
 }
@@ -718,9 +775,17 @@ void MyD3D12::PopulateCommandList()
     m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
     m_commandList->ClearDepthStencilView(m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
 
+    CD3DX12_GPU_DESCRIPTOR_HANDLE cubemapTextureDesc(m_cbvSrvHeap->GetGPUDescriptorHandleForHeapStart());
+    cubemapTextureDesc.Offset(m_diffuseTextures.size() + m_specularTextures.size(), m_cbvSrvDescriptorSize);
+    m_commandList->SetGraphicsRootDescriptorTable(4, cubemapTextureDesc);
+
     PIXBeginEvent(m_commandList.Get(), 0, L"Populate FrameResource");
 
-    m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_opaqueRenderers, m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
+    m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_renderLayers[(int)Core::RenderLayer::Opaque], m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
+
+    m_commandList->SetPipelineState(m_PSOs["cubemap"].Get());
+
+    m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_renderLayers[(int)Core::RenderLayer::Sky], m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
 
     PIXEndEvent(m_commandList.Get());
 

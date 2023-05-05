@@ -7,10 +7,16 @@
   </ProjectOutputs>
   <ContentFiles>
     <ContentFile>
-      <FullPath>C:\Users\97913\Desktop\DX12\bin\x64\Debug\PixelShader.cso</FullPath>
+      <FullPath>C:\Users\97913\Desktop\DX12\bin\x64\Debug\CubemapPS.cso</FullPath>
     </ContentFile>
     <ContentFile>
-      <FullPath>C:\Users\97913\Desktop\DX12\bin\x64\Debug\VertexShader.cso</FullPath>
+      <FullPath>C:\Users\97913\Desktop\DX12\bin\x64\Debug\CubemapVS.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\97913\Desktop\DX12\bin\x64\Debug\MainPS.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\97913\Desktop\DX12\bin\x64\Debug\MainVS.cso</FullPath>
     </ContentFile>
   </ContentFiles>
   <SatelliteDlls />

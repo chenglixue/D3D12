@@ -113,12 +113,24 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="bin\x64\Debug\Shading.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="bin\x64\Debug\Common.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="bin\x64\Debug\PixelShader.hlsl">
+    <FxCompile Include="bin\x64\Debug\CubemapPS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="bin\x64\Debug\VertexShader.hlsl">
+    <FxCompile Include="bin\x64\Debug\CubemapVS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="bin\x64\Debug\MainPS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="bin\x64\Debug\MainVS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

@@ -4,6 +4,7 @@
 #include <assimp/postprocess.h>
 #include <iostream>
 #include "Texture.h"
+#include "Geometry.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -11,28 +12,6 @@ using namespace DirectX;
 
 namespace Model
 {
-	struct Vertex
-	{
-		XMFLOAT3 position;
-		XMFLOAT3 normal;
-		XMFLOAT2 texCoord;
-		XMFLOAT3 tangent;
-		XMFLOAT3 bitNormal;
-	};
-
-	struct Mesh
-	{
-		Mesh() = default;
-		std::vector<Vertex> vertices;
-		std::vector<uint32_t> indices;
-
-		Mesh(std::vector<Vertex>& vertices, std::vector<UINT>& indices)
-		{
-			this->vertices = vertices;
-			this->indices = indices;
-		}
-	};
-
 	class ModelLoader
 	{
 	public:

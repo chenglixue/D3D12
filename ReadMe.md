@@ -1,5 +1,5 @@
-This is DX12 simple engine——shading and texture map
+This is DX12 simple engine——cubemap
 
-In this instance, will show you how to BlinnPhong & texture map
+In this instance, will show you how to realize skybox
 
-![image-20230504111400584](./assets/image-20230504111400584.png)
+![image-20230505110631626](./assets/image-20230505110631626.png)

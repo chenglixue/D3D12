@@ -85,9 +85,11 @@ namespace Model
 				localVertex.tangent.y = mesh->mTangents[i].y;
 				localVertex.tangent.z = mesh->mTangents[i].z;
 
+				/*
 				localVertex.bitNormal.x = mesh->mBitangents[i].x;
 				localVertex.bitNormal.y = mesh->mBitangents[i].y;
 				localVertex.bitNormal.z = mesh->mBitangents[i].z;
+				*/
 			}
 
 			// assimp allow one model have 8 different texture coordinates in one vertex, but we just care first texture coordinates because we will not use so many
