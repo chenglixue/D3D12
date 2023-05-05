@@ -35,7 +35,7 @@ namespace Core
 	enum class RenderLayer : int
 	{
 		Opaque = 0,
-		Sky = 1,
+		Sky,
 		Count
 	};
 }

@@ -273,6 +273,9 @@ void MyD3D12::BuildShaderAndInputLayout()
     m_shaders["CubemapVS"] = CompileShader(GetAssetFullPath(L"CubemapVS.hlsl").c_str(), nullptr, "main", "vs_5_1");
     m_shaders["CubemapPS"] = CompileShader(GetAssetFullPath(L"CubemapPS.hlsl").c_str(), nullptr, "main", "ps_5_1");
 
+    m_shaders["Outline_VS"] = CompileShader(GetAssetFullPath(L"Outline_VS.hlsl").c_str(), nullptr, "main", "vs_5_1");
+    m_shaders["Outline_PS"] = CompileShader(GetAssetFullPath(L"Outline_PS.hlsl").c_str(), nullptr, "main", "ps_5_1");
+
     m_inputLayout =
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -310,7 +313,9 @@ void MyD3D12::BuildRootSignature()
 
 void MyD3D12::BuildPSO()
 {
+    // 
     // Describe and create the graphics pipeline state object (PSO).
+    //
     D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePSODesc = {};
 
     opaquePSODesc.InputLayout = { m_inputLayout.data(), (uint32_t)m_inputLayout.size() };
@@ -327,7 +332,31 @@ void MyD3D12::BuildPSO()
     };
     opaquePSODesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
     opaquePSODesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-    opaquePSODesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+
+    {
+        // set depth & stencil test
+        D3D12_DEPTH_STENCIL_DESC outlineDesc;
+        outlineDesc.DepthEnable = TRUE; // enable depth test
+        outlineDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;    // Turn on writes to the depth-stencil buffer
+        outlineDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS; // if less pass the depth test
+
+        outlineDesc.StencilEnable = TRUE;
+        outlineDesc.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;   // no mask
+        outlineDesc.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK; // no mask  
+
+        outlineDesc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS; // pass stencil test
+        outlineDesc.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;      // no change
+        outlineDesc.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP; // no change
+        outlineDesc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_REPLACE;   // use stencil reference to replace data of stencil buffer
+
+        // default
+        outlineDesc.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+        outlineDesc.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+        outlineDesc.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+        outlineDesc.BackFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+
+        opaquePSODesc.DepthStencilState = outlineDesc;
+    }
     opaquePSODesc.SampleMask = UINT_MAX;  //set the sampling for each pixel(Multiple sampling takes up to 32 samples)
     opaquePSODesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     opaquePSODesc.NumRenderTargets = 1;   //The number of render target formats in the RTVFormats member
@@ -339,10 +368,55 @@ void MyD3D12::BuildPSO()
 
     NAME_D3D12_OBJECT(m_PSOs["opaque"]);
 
+    //
+    // draw outline of model
+    //
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC outlinePSODesc = opaquePSODesc;
+
+    D3D12_DEPTH_STENCIL_DESC outlineDesc;
+    outlineDesc.DepthEnable = FALSE; // forbie depth test
+    outlineDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;    // Turn on writes to the depth-stencil buffer
+    outlineDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS; // if less pass the depth test
+
+    outlineDesc.StencilEnable = TRUE;
+    outlineDesc.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;   // no mask
+    outlineDesc.StencilWriteMask = 0x00; // forbie stencil write
+
+    outlineDesc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_NOT_EQUAL; // pass stencil test
+    outlineDesc.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;      // no change
+    outlineDesc.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP; // no change
+    outlineDesc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;   // no change
+
+    // default
+    outlineDesc.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+    outlineDesc.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+    outlineDesc.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+    outlineDesc.BackFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+
+    outlinePSODesc.VS =
+    {
+        reinterpret_cast<BYTE*>(m_shaders["Outline_VS"]->GetBufferPointer()),
+        m_shaders["Outline_VS"]->GetBufferSize()
+    };
+
+    outlinePSODesc.PS =
+    {
+        reinterpret_cast<BYTE*>(m_shaders["Outline_PS"]->GetBufferPointer()),
+        m_shaders["Outline_PS"]->GetBufferSize()
+    };
+
+    ThrowIfFailed(m_device->CreateGraphicsPipelineState(&outlinePSODesc, IID_PPV_ARGS(&m_PSOs["Outline"])));
+
+    NAME_D3D12_OBJECT(m_PSOs["Outline"]);
+
+    //
+    // draw cubemap
+    //
     D3D12_GRAPHICS_PIPELINE_STATE_DESC cubemapPSODesc = opaquePSODesc;
     // forbide back culling 
     cubemapPSODesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
     // let cubemap z = 1 pass z-test, otherwise it'll be failed in z-test because data of zbuffer is 1
+    cubemapPSODesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     cubemapPSODesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
     cubemapPSODesc.pRootSignature = m_rootSignature.Get();
     cubemapPSODesc.VS =
@@ -781,10 +855,13 @@ void MyD3D12::PopulateCommandList()
 
     PIXBeginEvent(m_commandList.Get(), 0, L"Populate FrameResource");
 
+    m_commandList->OMSetStencilRef(1);
+    m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_renderLayers[(int)Core::RenderLayer::Opaque], m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
+
+    m_commandList->SetPipelineState(m_PSOs["Outline"].Get());
     m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_renderLayers[(int)Core::RenderLayer::Opaque], m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
 
     m_commandList->SetPipelineState(m_PSOs["cubemap"].Get());
-
     m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_renderLayers[(int)Core::RenderLayer::Sky], m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
 
     PIXEndEvent(m_commandList.Get());

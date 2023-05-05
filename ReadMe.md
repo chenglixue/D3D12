@@ -1,5 +1,5 @@
-This is DX12 simple engine——cubemap
+This is DX12 Graphics algorithms realize——stencil/depth
 
-In this instance, will show you how to realize skybox
+In this instance, will show you how to draw model outline
 
-![image-20230505110631626](./assets/image-20230505110631626.png)
+![image-20230505232039844](./assets/image-20230505232039844.png)

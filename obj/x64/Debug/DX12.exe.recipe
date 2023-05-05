@@ -7,6 +7,12 @@
   </ProjectOutputs>
   <ContentFiles>
     <ContentFile>
+      <FullPath>C:\Users\97913\Desktop\DX12\bin\x64\Debug\Outline_PS.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\97913\Desktop\DX12\bin\x64\Debug\Outline_VS.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
       <FullPath>C:\Users\97913\Desktop\DX12\bin\x64\Debug\CubemapPS.cso</FullPath>
     </ContentFile>
     <ContentFile>

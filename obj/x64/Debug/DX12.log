@@ -1,19 +1,4 @@
-﻿  MyD3D12.cpp
-C:\Users\97913\Desktop\DX12\MyD3D12.cpp(302,176): warning C4267: 'argument': conversion from 'size_t' to 'UINT', possible loss of data
-C:\Users\97913\Desktop\DX12\MyD3D12.cpp(523,39): warning C4267: '=': conversion from 'size_t' to 'UINT', possible loss of data
-C:\Users\97913\Desktop\DX12\MyD3D12.cpp(524,47): warning C4267: '=': conversion from 'size_t' to 'UINT', possible loss of data
-C:\Users\97913\Desktop\DX12\MyD3D12.cpp(525,52): warning C4267: '=': conversion from 'size_t' to 'UINT', possible loss of data
-C:\Users\97913\Desktop\DX12\MyD3D12.cpp(528,39): warning C4305: '=': truncation from 'double' to 'float'
-C:\Users\97913\Desktop\DX12\MyD3D12.cpp(537,36): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\97913\Desktop\DX12\MyD3D12.cpp(543,39): warning C4305: '=': truncation from 'double' to 'float'
-C:\Users\97913\Desktop\DX12\MyD3D12.cpp(559,35): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
-C:\Users\97913\Desktop\DX12\MyD3D12.cpp(576,35): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
-C:\Users\97913\Desktop\DX12\MyD3D12.cpp(621,109): warning C4267: '=': conversion from 'size_t' to 'UINT', possible loss of data
-C:\Users\97913\Desktop\DX12\MyD3D12.cpp(779,107): warning C4267: 'argument': conversion from 'size_t' to 'INT', possible loss of data
-C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.29.30133\include\memory(3382,1): warning C4267: 'argument': conversion from 'size_t' to 'uint32_t', possible loss of data
-C:\Users\97913\Desktop\DX12\MyD3D12.cpp(597): message : see reference to function template instantiation 'std::unique_ptr<Core::FrameResource,std::default_delete<Core::FrameResource>> std::make_unique<Core::FrameResource,T*,int,unsigned __int64,unsigned __int64,0>(T *&&,int &&,unsigned __int64 &&,unsigned __int64 &&)' being compiled
-          with
-          [
-              T=ID3D12Device
-          ]
+﻿C:\Users\97913\Desktop\DX12\bin\x64\Debug\Outline_VS.hlsl(1,9-12): warning X3568: 'once' : unknown pragma ignored
+  
+  compilation object save succeeded; see C:\Users\97913\Desktop\DX12\bin\x64\Debug\Outline_VS.cso
   DX12.vcxproj -> C:\Users\97913\Desktop\DX12\bin\x64\Debug\DX12.exe

@@ -133,5 +133,11 @@
     <FxCompile Include="bin\x64\Debug\MainVS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="bin\x64\Debug\Outline_VS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="bin\x64\Debug\Outline_PS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
