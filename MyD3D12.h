@@ -60,14 +60,14 @@ private:
     std::vector<std::unique_ptr<Model::ModelLoader>> m_models;
     std::vector<std::unique_ptr<Core::Texture>> m_diffuseTextures;
     std::vector<std::unique_ptr<Core::Texture>> m_specularTextures;
+    std::unordered_map<std::string, std::unique_ptr<Core::Texture>> m_cubemaps;
     std::vector<std::unique_ptr<Core::Material>> m_materials;
     std::vector<std::unique_ptr<Model::Geometrie>> m_geometries;
     std::vector<std::unique_ptr<Model::Geometrie::Draw>> m_draws;
 
     // renderer resources
     std::vector<std::unique_ptr<Core::Renderer>> m_allRenderers;
-    std::vector<Core::Renderer*> m_opaqueRenderers;
-    std::vector<Core::Renderer*> m_transparentRenderers;
+    std::vector<Core::Renderer*> m_renderLayers[(int)Core::RenderLayer::Count];
 
     // timer and camera
     Util::StepTimer m_timer;

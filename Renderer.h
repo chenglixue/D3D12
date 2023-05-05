@@ -31,4 +31,11 @@ namespace Core
 		uint32_t startIndex;
 		uint32_t baseVertex;
 	};
+
+	enum class RenderLayer : int
+	{
+		Opaque = 0,
+		Sky = 1,
+		Count
+	};
 }

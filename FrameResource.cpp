@@ -36,7 +36,7 @@ namespace Core
         // populate pass constant buffer
         {
             auto passCB = this->passUploadCB->Resource();
-            pCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
+            pCommandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
         }
 
         // populate object constant buffer and DrawIndexedInstanced
@@ -61,9 +61,9 @@ namespace Core
                 D3D12_GPU_VIRTUAL_ADDRESS objectAddress = currObjectUploadCB->GetGPUVirtualAddress() + currRenderer->objectIndex * objectCBSize;
                 D3D12_GPU_VIRTUAL_ADDRESS materialAddress = currMaterialUploadCB->GetGPUVirtualAddress() + currRenderer->pMaterail->materialCBIndex * materialCBSize;
 
-                pCommandList->SetGraphicsRootDescriptorTable(0, hTex);
-                pCommandList->SetGraphicsRootConstantBufferView(1, objectAddress);
-                pCommandList->SetGraphicsRootConstantBufferView(3, materialAddress);
+                pCommandList->SetGraphicsRootConstantBufferView(0, objectAddress);
+                pCommandList->SetGraphicsRootConstantBufferView(2, materialAddress);
+                pCommandList->SetGraphicsRootDescriptorTable(3, hTex);
 
                 pCommandList->DrawIndexedInstanced(currRenderer->indexCount, 1, currRenderer->startIndex, currRenderer->baseVertex, 0);
             }
