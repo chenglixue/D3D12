@@ -313,13 +313,50 @@ void MyD3D12::BuildRootSignature()
 
 void MyD3D12::BuildPSO()
 {
+    //
+    // draw cubemap
+    //
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC cubemapPSODesc = {};
+
+    cubemapPSODesc.InputLayout = { m_inputLayout.data(), (uint32_t)m_inputLayout.size() };
+    cubemapPSODesc.pRootSignature = m_rootSignature.Get();
+    cubemapPSODesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    cubemapPSODesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    cubemapPSODesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+    cubemapPSODesc.SampleMask = UINT_MAX;  //set the sampling for each pixel(Multiple sampling takes up to 32 samples)
+    cubemapPSODesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    cubemapPSODesc.NumRenderTargets = 1;   //The number of render target formats in the RTVFormats member
+    cubemapPSODesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+    cubemapPSODesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    cubemapPSODesc.SampleDesc.Count = 1;
+
+    // forbide back culling 
+    cubemapPSODesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+    // let cubemap z = 1 pass z-test, otherwise it'll be failed in z-test because data of zbuffer is 1
+    cubemapPSODesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+    cubemapPSODesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+    cubemapPSODesc.pRootSignature = m_rootSignature.Get();
+    cubemapPSODesc.VS =
+    {
+        reinterpret_cast<BYTE*>(m_shaders["CubemapVS"]->GetBufferPointer()),
+        m_shaders["CubemapVS"]->GetBufferSize()
+    };
+    cubemapPSODesc.PS =
+    {
+        reinterpret_cast<BYTE*>(m_shaders["CubemapPS"]->GetBufferPointer()),
+        m_shaders["CubemapPS"]->GetBufferSize()
+    };
+
+    ThrowIfFailed(m_device->CreateGraphicsPipelineState(&cubemapPSODesc, IID_PPV_ARGS(&m_PSOs["cubemap"])));
+
+    NAME_D3D12_OBJECT(m_PSOs["cubemap"]);
+
+
     // 
     // Describe and create the graphics pipeline state object (PSO).
     //
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePSODesc = {};
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePSODesc = cubemapPSODesc;
 
-    opaquePSODesc.InputLayout = { m_inputLayout.data(), (uint32_t)m_inputLayout.size() };
-    opaquePSODesc.pRootSignature = m_rootSignature.Get();
     opaquePSODesc.VS =
     {
         reinterpret_cast<BYTE*>(m_shaders["MainVS"]->GetBufferPointer()),
@@ -333,11 +370,24 @@ void MyD3D12::BuildPSO()
     opaquePSODesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
     opaquePSODesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 
+    D3D12_RENDER_TARGET_BLEND_DESC opaqueBlendDesc = {};
+    opaqueBlendDesc.BlendEnable = TRUE;
+    opaqueBlendDesc.LogicOpEnable = FALSE;
+    opaqueBlendDesc.SrcBlend = D3D12_BLEND_SRC_COLOR;
+    opaqueBlendDesc.DestBlend = D3D12_BLEND_DEST_COLOR;
+    opaqueBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
+    opaqueBlendDesc.SrcBlendAlpha = D3D12_BLEND_SRC_ALPHA;
+    opaqueBlendDesc.DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
+    opaqueBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+    opaqueBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
+    opaqueBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+    opaquePSODesc.BlendState.RenderTarget[0] = opaqueBlendDesc;
+
     {
         // set depth & stencil test
         D3D12_DEPTH_STENCIL_DESC outlineDesc;
         outlineDesc.DepthEnable = TRUE; // enable depth test
-        outlineDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;    // Turn on writes to the depth-stencil buffer
+        outlineDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;    // Turn off writes to the depth-stencil buffer
         outlineDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS; // if less pass the depth test
 
         outlineDesc.StencilEnable = TRUE;
@@ -357,12 +407,6 @@ void MyD3D12::BuildPSO()
 
         opaquePSODesc.DepthStencilState = outlineDesc;
     }
-    opaquePSODesc.SampleMask = UINT_MAX;  //set the sampling for each pixel(Multiple sampling takes up to 32 samples)
-    opaquePSODesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    opaquePSODesc.NumRenderTargets = 1;   //The number of render target formats in the RTVFormats member
-    opaquePSODesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-    opaquePSODesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    opaquePSODesc.SampleDesc.Count = 1;
 
     ThrowIfFailed(m_device->CreateGraphicsPipelineState(&opaquePSODesc, IID_PPV_ARGS(&m_PSOs["opaque"])));
 
@@ -408,31 +452,6 @@ void MyD3D12::BuildPSO()
     ThrowIfFailed(m_device->CreateGraphicsPipelineState(&outlinePSODesc, IID_PPV_ARGS(&m_PSOs["Outline"])));
 
     NAME_D3D12_OBJECT(m_PSOs["Outline"]);
-
-    //
-    // draw cubemap
-    //
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC cubemapPSODesc = opaquePSODesc;
-    // forbide back culling 
-    cubemapPSODesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-    // let cubemap z = 1 pass z-test, otherwise it'll be failed in z-test because data of zbuffer is 1
-    cubemapPSODesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-    cubemapPSODesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-    cubemapPSODesc.pRootSignature = m_rootSignature.Get();
-    cubemapPSODesc.VS =
-    {
-        reinterpret_cast<BYTE*>(m_shaders["CubemapVS"]->GetBufferPointer()),
-        m_shaders["CubemapVS"]->GetBufferSize()
-    };
-    cubemapPSODesc.PS =
-    {
-        reinterpret_cast<BYTE*>(m_shaders["CubemapPS"]->GetBufferPointer()),
-        m_shaders["CubemapPS"]->GetBufferSize()
-    };
-
-    ThrowIfFailed(m_device->CreateGraphicsPipelineState(&cubemapPSODesc, IID_PPV_ARGS(&m_PSOs["cubemap"])));
-
-    NAME_D3D12_OBJECT(m_PSOs["cubemap"]);
 }
 
 void MyD3D12::BuildModel()
@@ -826,7 +845,7 @@ void MyD3D12::PopulateCommandList()
         when ExecuteCommandList() is called on a particular command list 
         command list can then be reset at any time and must be before re-recording
     */
-    ThrowIfFailed(m_commandList->Reset(m_pCurrentFrameResource->commandAllocator.Get(), m_PSOs["opaque"].Get()));
+    ThrowIfFailed(m_commandList->Reset(m_pCurrentFrameResource->commandAllocator.Get(), m_PSOs["cubemap"].Get()));
 
     // Set necessary state
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
@@ -855,14 +874,14 @@ void MyD3D12::PopulateCommandList()
 
     PIXBeginEvent(m_commandList.Get(), 0, L"Populate FrameResource");
 
+    m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_renderLayers[(int)Core::RenderLayer::Sky], m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
+
     m_commandList->OMSetStencilRef(1);
+    m_commandList->SetPipelineState(m_PSOs["opaque"].Get());
     m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_renderLayers[(int)Core::RenderLayer::Opaque], m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
 
     m_commandList->SetPipelineState(m_PSOs["Outline"].Get());
     m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_renderLayers[(int)Core::RenderLayer::Opaque], m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
-
-    m_commandList->SetPipelineState(m_PSOs["cubemap"].Get());
-    m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_renderLayers[(int)Core::RenderLayer::Sky], m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
 
     PIXEndEvent(m_commandList.Get());
 
