@@ -10,7 +10,9 @@ float4 main(PSInput input) : SV_TARGET
     
     input.normalW = normalize(input.normalW);
     
-    float3 toEyeDirW = normalize(eyeWorldPosition - input.positionW);
+    float3 toEyeDirW = eyeWorldPosition - input.positionW;
+    float toEyeLength = length(toEyeDirW);
+    toEyeDirW = normalize(toEyeDirW);
     
     Material material = { textureDiffuseAlbedo, textureSpecularAlbedo, ambientAlbedo, specualrShiness };
 

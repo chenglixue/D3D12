@@ -35,8 +35,7 @@ namespace Core
         XMFLOAT4X4 inverseViewProjection;
 
         XMFLOAT3 eyeWorldPosition;
-
-        float pad1;
+        float pad3;
 
         Light lights[MAX_LIGHT_COUNT];
     };

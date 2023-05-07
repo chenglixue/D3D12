@@ -1,5 +1,5 @@
-This is DX12 Graphics algorithms realize——stencil/depth
+This is DX12 Graphics algorithms realize——blend
 
-In this instance, will show you how to draw model outline
+In this instance, will show you how to draw semitransparent model
 
-![image-20230505232039844](./assets/image-20230505232039844.png)
+![image-20230507152228244](./assets/image-20230507152228244.png)
