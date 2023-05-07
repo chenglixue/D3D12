@@ -1,5 +1,5 @@
-This is DX12 Graphics algorithms realize——blend
+This is DX12 Graphics algorithms realize——normalmap
 
-In this instance, will show you how to draw semitransparent model
+In this instance, will show you how to realize normalmap
 
-![image-20230507152228244](./assets/image-20230507152228244.png)
+![image-20230507220311656](./assets/image-20230507220311656.png)

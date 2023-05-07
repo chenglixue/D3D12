@@ -280,7 +280,8 @@ void MyD3D12::BuildShaderAndInputLayout()
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 }
 
@@ -289,8 +290,8 @@ void MyD3D12::BuildRootSignature()
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
 
     CD3DX12_DESCRIPTOR_RANGE ranges[2];
-    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0);  // register t0, t1
-    ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2, 0);
+    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0, 0);  // register t0, t1, t2
+    ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 1);
 
     CD3DX12_ROOT_PARAMETER rootParameters[5];
     rootParameters[0].InitAsConstantBufferView(0);  // register b0
@@ -335,7 +336,6 @@ void MyD3D12::BuildPSO()
     // let cubemap z = 1 pass z-test, otherwise it'll be failed in z-test because data of zbuffer is 1
     cubemapPSODesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     cubemapPSODesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-    cubemapPSODesc.pRootSignature = m_rootSignature.Get();
     cubemapPSODesc.VS =
     {
         reinterpret_cast<BYTE*>(m_shaders["CubemapVS"]->GetBufferPointer()),
@@ -370,6 +370,7 @@ void MyD3D12::BuildPSO()
     opaquePSODesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
     opaquePSODesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 
+    /*
     D3D12_RENDER_TARGET_BLEND_DESC opaqueBlendDesc = {};
     opaqueBlendDesc.BlendEnable = TRUE;
     opaqueBlendDesc.LogicOpEnable = FALSE;
@@ -382,12 +383,13 @@ void MyD3D12::BuildPSO()
     opaqueBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
     opaqueBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     opaquePSODesc.BlendState.RenderTarget[0] = opaqueBlendDesc;
+    */
 
     {
         // set depth & stencil test
         D3D12_DEPTH_STENCIL_DESC outlineDesc;
         outlineDesc.DepthEnable = TRUE; // enable depth test
-        outlineDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;    // Turn off writes to the depth-stencil buffer
+        outlineDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;    // Turn off writes to the depth-stencil buffer
         outlineDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS; // if less pass the depth test
 
         outlineDesc.StencilEnable = TRUE;
@@ -580,7 +582,33 @@ void MyD3D12::LoadTexture()
         m_specularTextures.push_back(std::move(pTexture));
     }
 
-    assert(m_specularTextures.size() != 0);
+    // normalmap dds
+    for (size_t i = 0; i < m_models.size(); ++i)
+    {
+        auto pTexture = std::make_unique<Core::Texture>();
+
+        auto textureName = m_models[i]->GetTextureName();
+        auto textureFileName = m_models[i]->GetDirectory() + textureName + "_normal.dds";
+        OutputDebugStringA((textureName + "_normal" + '\n').c_str());
+        OutputDebugStringA((textureFileName + '\n').c_str());
+
+        pTexture->name = textureName;
+        pTexture->fileName = Util::UTF8ToWideString(textureFileName);
+
+        ThrowIfFailed(LoadDDSTextureFromFile(
+            m_device.Get(),
+            pTexture->fileName.c_str(),
+            &pTexture->defaultTexture,
+            pTexture->ddsData,
+            pTexture->subResources
+        ));
+
+        Core::CreateD3DResource(m_device.Get(), m_commandList.Get(), pTexture->subResources, pTexture->defaultTexture, pTexture->uploadTexture);
+
+        m_normalmapTextures.push_back(std::move(pTexture));
+    }
+
+    assert(m_normalmapTextures.size() != 0);
 
     // sky box
     {
@@ -607,15 +635,15 @@ void MyD3D12::LoadTexture()
 void MyD3D12::BuildMaterial()
 {
     // model's material
-    for (size_t i = 0; i < m_models.size(); ++i)
     {
         auto pMaterial = std::make_unique<Core::Material>();
 
-        std::string temp = m_models[i]->GetTextureName();
+        std::string temp = m_models[0]->GetTextureName();
         pMaterial->name = temp.substr(0, temp.find_last_of('_'));
-        pMaterial->materialCBIndex = i;
-        pMaterial->diffuseSrvHeapIndex = 2 * i;
-        pMaterial->specularSrvHeapIndex = 2 * i + 1;
+        pMaterial->materialCBIndex = 0;
+        pMaterial->diffuseSrvHeapIndex = 0;
+        pMaterial->specularSrvHeapIndex = 1;
+        pMaterial->normalmapSrvHeapIndex = 2;
         pMaterial->numFramesDirty = FrameCount;
         pMaterial->specualrShiness = 64;
         pMaterial->ambientAlbedo = 0.1;
@@ -627,10 +655,9 @@ void MyD3D12::BuildMaterial()
     {
         auto pMaterial = std::make_unique<Core::Material>();
 
-        int index = m_models.size();
         pMaterial->name = "skybox";
-        pMaterial->materialCBIndex = index;
-        pMaterial->diffuseSrvHeapIndex = 2 * index;
+        pMaterial->materialCBIndex = 1;
+        pMaterial->diffuseSrvHeapIndex = 3;
         pMaterial->numFramesDirty = FrameCount;
         pMaterial->specualrShiness = 64;
         pMaterial->ambientAlbedo = 0.1;
@@ -711,7 +738,7 @@ void MyD3D12::BuildDescriptorHeaps()
 
     // create a const buffer view(CBV) descriptor heap
     D3D12_DESCRIPTOR_HEAP_DESC cbvSrvHeapDesc = {};
-    cbvSrvHeapDesc.NumDescriptors = m_diffuseTextures.size() + m_specularTextures.size() + m_cubemaps.size();
+    cbvSrvHeapDesc.NumDescriptors = m_diffuseTextures.size() + m_specularTextures.size() + m_normalmapTextures.size() + m_cubemaps.size();
     cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&m_cbvSrvHeap)));
@@ -804,6 +831,18 @@ void MyD3D12::BuildCBVSRV()
 
                 hSRVDescriptor.Offset(1, m_cbvSrvDescriptorSize);
             }
+
+            // normalmap texture
+            {
+                auto pCurrTexture = m_normalmapTextures[i]->defaultTexture;
+
+                srvDesc.Format = pCurrTexture->GetDesc().Format;
+                srvDesc.Texture2D.MipLevels = pCurrTexture->GetDesc().MipLevels;   // combine with MostDetailedMip
+
+                m_device->CreateShaderResourceView(pCurrTexture.Get(), &srvDesc, hSRVDescriptor);
+
+                hSRVDescriptor.Offset(1, m_cbvSrvDescriptorSize);
+            }
         }
 
         // cubemap texture
@@ -869,7 +908,7 @@ void MyD3D12::PopulateCommandList()
     m_commandList->ClearDepthStencilView(m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
 
     CD3DX12_GPU_DESCRIPTOR_HANDLE cubemapTextureDesc(m_cbvSrvHeap->GetGPUDescriptorHandleForHeapStart());
-    cubemapTextureDesc.Offset(m_diffuseTextures.size() + m_specularTextures.size(), m_cbvSrvDescriptorSize);
+    cubemapTextureDesc.Offset(m_diffuseTextures.size() + m_specularTextures.size() + m_normalmapTextures.size(), m_cbvSrvDescriptorSize);
     m_commandList->SetGraphicsRootDescriptorTable(4, cubemapTextureDesc);
 
     PIXBeginEvent(m_commandList.Get(), 0, L"Populate FrameResource");
@@ -880,9 +919,10 @@ void MyD3D12::PopulateCommandList()
     m_commandList->SetPipelineState(m_PSOs["opaque"].Get());
     m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_renderLayers[(int)Core::RenderLayer::Opaque], m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
 
+    /*
     m_commandList->SetPipelineState(m_PSOs["Outline"].Get());
     m_pCurrentFrameResource->PopulateCommandList(m_commandList.Get(), m_renderLayers[(int)Core::RenderLayer::Opaque], m_cbvSrvHeap.Get(), m_passCBVOffset, m_frameIndex, m_cbvSrvDescriptorSize);
-
+    */
     PIXEndEvent(m_commandList.Get());
 
     // Indicate that the back buffer will now be used to present.

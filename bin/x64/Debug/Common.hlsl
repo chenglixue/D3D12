@@ -49,4 +49,24 @@ SamplerState g_SamperAnisotropyClamp : register(s5);
 
 Texture2D g_diffuseTexture : register(t0, space0);
 Texture2D g_specularTexture : register(t1, space0);
-TextureCube g_cubemap : register(t2, space0);
+Texture2D g_normalmapTexture : register(t2, space0);
+TextureCube g_cubemap : register(t0, space1);
+
+//-------------------------------------------------------------------------- definition --------------------------------------------------------------------------
+
+float3 normalmapToWolrd(float3 normalmap, float3 normalizeNormalW, float3 tangentW)
+{
+    // [0,1] -> [-1,1]
+    float3 normalConvert = 2.f * normalmap - 1.f;
+    
+    // build TBN
+    float3 N = normalizeNormalW;
+    // because after lerp T and N may not be orthogonal vectors
+    float3 T = normalize(tangentW - dot(N, tangentW) * N);
+    float3 B = cross(N, T);
+    float3x3 TBN = float3x3(T, B, N);
+    
+    float3 result = mul(normalConvert, TBN);
+
+    return result;
+}

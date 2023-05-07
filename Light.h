@@ -20,6 +20,8 @@ namespace Core
 
 		UINT specularSrvHeapIndex;
 
+		UINT normalmapSrvHeapIndex;
+
 		UINT numFramesDirty;
 
 		// specualr equation's pow

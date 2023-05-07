@@ -1,14 +1,1 @@
-﻿C:\Users\97913\Desktop\DX12\bin\x64\Debug\Outline_VS.hlsl(1,9-12): warning X3568: 'once' : unknown pragma ignored
-  
-  compilation object save succeeded; see C:\Users\97913\Desktop\DX12\bin\x64\Debug\Outline_VS.cso
-  compilation object save succeeded; see C:\Users\97913\Desktop\DX12\bin\x64\Debug\CubemapPS.cso
-  compilation object save succeeded; see C:\Users\97913\Desktop\DX12\bin\x64\Debug\CubemapVS.cso
-C:\Users\97913\Desktop\DX12\bin\x64\Debug\shading.hlsl(119,5-47): warning X3557: loop only executes for 1 iteration(s), forcing loop to unroll
-C:\Users\97913\Desktop\DX12\bin\x64\Debug\shading.hlsl(128,5-87): warning X3557: loop only executes for 1 iteration(s), forcing loop to unroll
-C:\Users\97913\Desktop\DX12\bin\x64\Debug\shading.hlsl(137,5-126): warning X3557: loop only executes for 1 iteration(s), forcing loop to unroll
-C:\Users\97913\Desktop\DX12\bin\x64\Debug\shading.hlsl(74,5): warning X4000: use of potentially uninitialized variable (CalcPointLight)
-C:\Users\97913\Desktop\DX12\bin\x64\Debug\shading.hlsl(96,5): warning X4000: use of potentially uninitialized variable (CaleSpotLight)
-  
-  compilation object save succeeded; see C:\Users\97913\Desktop\DX12\bin\x64\Debug\MainPS.cso
-  compilation object save succeeded; see C:\Users\97913\Desktop\DX12\bin\x64\Debug\MainVS.cso
-  DX12.vcxproj -> C:\Users\97913\Desktop\DX12\bin\x64\Debug\DX12.exe
+﻿  DX12.vcxproj -> C:\Users\97913\Desktop\DX12\bin\x64\Debug\DX12.exe
